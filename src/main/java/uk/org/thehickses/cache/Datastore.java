@@ -498,7 +498,7 @@ public class Datastore<I, V>
     /**
      * An interface defining a change processor, which is called whenever the store changes.
      *
-     * @param <T>
+     * @param <V>
      *            the type of the objects processed.
      */
     @FunctionalInterface
@@ -799,7 +799,7 @@ public class Datastore<I, V>
             return get(key, Map::values);
         }
 
-        private <T> Stream<T> get(K key, Function<Map<I, V>, Collection<T>> getter)
+        private <T> Stream<T> get(K key, Function<Map<I, V>, Iterable<T>> getter)
         {
             Objects.requireNonNull(key);
             Stream.Builder<T> builder = Stream.builder();
