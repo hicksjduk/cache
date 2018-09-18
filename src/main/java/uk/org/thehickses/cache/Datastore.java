@@ -163,7 +163,7 @@ public class Datastore<I, V>
     private <K, U extends V> void addIndex(Index<K, I, U> index)
     {
         indices.add(index);
-        storage.identifiers().map(storage::get).forEach(index::add);
+        storage.identifiers().forEach(i -> index.add(i, storage.get(i)));
     }
 
     /**
@@ -823,14 +823,25 @@ public class Datastore<I, V>
             if (!objectType.isAssignableFrom(object.getClass()))
                 return;
             V castObject = objectType.cast(object);
-            I identifier = identifierGetter.getIdentifier(castObject);
-            Stream<K> keys = keysGetter.getKeys(castObject);
+            addObject(identifierGetter.getIdentifier(castObject), castObject);
+        }
+
+        private void add(I identifier, Object object)
+        {
+            if (!objectType.isAssignableFrom(object.getClass()))
+                return;
+            addObject(identifier, objectType.cast(object));
+        }
+
+        private void addObject(I identifier, V object)
+        {
+            Stream<K> keys = keysGetter.getKeys(object);
             doWithLock(lock.writeLock(), () -> {
                 keys.forEach(key -> {
                     Map<I, V> objects = objectsByKey.get(key);
                     if (objects == null)
                         objectsByKey.put(key, objects = new HashMap<>());
-                    objects.put(identifier, castObject);
+                    objects.put(identifier, object);
                 });
             });
         }
