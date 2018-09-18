@@ -175,7 +175,8 @@ public class Datastore<I, V>
      */
     public V get(I identifier)
     {
-        return doWithLock(lock.readLock(), () -> storage.get(Objects.requireNonNull(identifier)));
+        Objects.requireNonNull(identifier);
+        return doWithLock(lock.readLock(), () -> storage.get(identifier));
     }
 
     /**
@@ -402,14 +403,14 @@ public class Datastore<I, V>
         try
         {
             additionValidator.validate(identifier, oldValue, newValue);
-            storage.put(identifier, newValue);
-            updateIndices(oldValue, newValue);
-            return new AddResult(identifier, oldValue, newValue);
         }
         catch (InvalidAdditionException ex)
         {
             return new AddResult(identifier, oldValue, newValue, ex);
         }
+        storage.put(identifier, newValue);
+        updateIndices(oldValue, newValue);
+        return new AddResult(identifier, oldValue, newValue);
     }
 
     /**
@@ -422,12 +423,15 @@ public class Datastore<I, V>
      */
     private Supplier<Result> remover(I identifier)
     {
-        return () -> {
-            V oldValue = storage.remove(identifier);
-            if (oldValue != null)
-                updateIndices(oldValue, null);
-            return new RemoveResult(identifier, oldValue);
-        };
+        return () -> remove(identifier);
+    }
+
+    private Result remove(I identifier)
+    {
+        V oldValue = storage.remove(identifier);
+        if (oldValue != null)
+            updateIndices(oldValue, null);
+        return new RemoveResult(identifier, oldValue);
     }
 
     /**
