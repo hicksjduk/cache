@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -783,14 +784,7 @@ public class Datastore<I, V>
          */
         public Collection<I> getIdentifiers(K key)
         {
-            Objects.requireNonNull(key);
-            Collection<I> answer = new HashSet<I>();
-            doWithLock(lock.readLock(), () -> {
-                Map<I, V> objects = objectsByKey.get(key);
-                if (objects != null)
-                    answer.addAll(objects.keySet());
-            });
-            return answer;
+            return get(key, Map::keySet);
         }
 
         /**
@@ -802,12 +796,17 @@ public class Datastore<I, V>
          */
         public Collection<V> getObjects(K key)
         {
+            return get(key, Map::values);
+        }
+
+        private <T> Collection<T> get(K key, Function<Map<I, V>, ? extends Collection<T>> getter)
+        {
             Objects.requireNonNull(key);
-            Collection<V> answer = new HashSet<V>();
+            Collection<T> answer = new HashSet<>();
             doWithLock(lock.readLock(), () -> {
-                Map<I, V> objects = objectsByKey.get(key);
-                if (objects != null)
-                    answer.addAll(objects.values());
+                Map<I, V> objsForKey = objectsByKey.get(key);
+                if (objsForKey != null)
+                    answer.addAll(getter.apply(objsForKey));
             });
             return answer;
         }
