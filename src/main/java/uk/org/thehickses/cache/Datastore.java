@@ -782,7 +782,7 @@ public class Datastore<I, V>
          *            the key. May not be null.
          * @return the associated identifiers, if there are any. May be empty, but is never null.
          */
-        public Collection<I> getIdentifiers(K key)
+        public Stream<I> getIdentifiers(K key)
         {
             return get(key, Map::keySet);
         }
@@ -794,21 +794,21 @@ public class Datastore<I, V>
          *            the key. May not be null.
          * @return the associated objects, if there are any. May be empty, but is never null.
          */
-        public Collection<V> getObjects(K key)
+        public Stream<V> getObjects(K key)
         {
             return get(key, Map::values);
         }
 
-        private <T> Collection<T> get(K key, Function<Map<I, V>, ? extends Collection<T>> getter)
+        private <T> Stream<T> get(K key, Function<Map<I, V>, Collection<T>> getter)
         {
             Objects.requireNonNull(key);
-            Collection<T> answer = new HashSet<>();
+            Stream.Builder<T> builder = Stream.builder();
             doWithLock(lock.readLock(), () -> {
                 Map<I, V> objsForKey = objectsByKey.get(key);
                 if (objsForKey != null)
-                    answer.addAll(getter.apply(objsForKey));
+                    getter.apply(objsForKey).forEach(builder);
             });
-            return answer;
+            return builder.build();
         }
 
         /**
