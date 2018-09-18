@@ -129,7 +129,7 @@ public class Datastore<I, V>
             KeyGetter<K, ? super U> keyGetter)
     {
         Stream.of(objectType, keyGetter).forEach(Objects::requireNonNull);
-        Index<K, I, U> index = new Index<>(objectType, identifierGetter, keyGetter);
+        Index<K, I, U> index = new Index<>(objectType, identifierGetter, keyGetter, lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
     }
@@ -149,7 +149,7 @@ public class Datastore<I, V>
             KeysGetter<K, ? super U> keysGetter)
     {
         Stream.of(objectType, keysGetter).forEach(Objects::requireNonNull);
-        Index<K, I, U> index = new Index<>(objectType, identifierGetter, keysGetter);
+        Index<K, I, U> index = new Index<>(objectType, identifierGetter, keysGetter, lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
     }
@@ -455,7 +455,7 @@ public class Datastore<I, V>
      *            the object which is to be invoked. May not be null.
      * @return the result of invoking the object. May be null.
      */
-    private <T> T doWithLock(Lock lock, Supplier<T> processor)
+    private static <T> T doWithLock(Lock lock, Supplier<T> processor)
     {
         lock.lock();
         try
@@ -477,7 +477,7 @@ public class Datastore<I, V>
      * @param processor
      *            the object which is to be invoked. May not be null.
      */
-    private void doWithLock(Lock lock, Runnable processor)
+    private static void doWithLock(Lock lock, Runnable processor)
     {
         lock.lock();
         try
@@ -729,6 +729,8 @@ public class Datastore<I, V>
 
         private final KeysGetter<K, ? super V> keysGetter;
 
+        private final ReadWriteLock lock;
+
         /**
          * Initialises the index with the specified object type, identifier getter and (single) key getter.
          * 
@@ -740,10 +742,10 @@ public class Datastore<I, V>
          *            the key getter. May not be null.
          */
         private Index(Class<V> objectType, IdentifierGetter<I, ? super V> identifierGetter,
-                KeyGetter<K, ? super V> keyGetter)
+                KeyGetter<K, ? super V> keyGetter, ReadWriteLock lock)
         {
             this(objectType, identifierGetter,
-                    (KeysGetter<K, V>) v -> Stream.of(keyGetter.getKey(v)));
+                    (KeysGetter<K, V>) v -> Stream.of(keyGetter.getKey(v)), lock);
         }
 
         /**
@@ -757,7 +759,7 @@ public class Datastore<I, V>
          *            the key getter. May not be null.
          */
         private Index(Class<V> objectType, IdentifierGetter<I, ? super V> identifierGetter,
-                KeysGetter<K, ? super V> keysGetter)
+                KeysGetter<K, ? super V> keysGetter, ReadWriteLock lock)
         {
             this.objectType = objectType;
             this.identifierGetter = obj -> Objects
@@ -765,6 +767,7 @@ public class Datastore<I, V>
             this.keysGetter = obj -> Objects
                     .requireNonNull(keysGetter.getKeys(obj))
                     .filter(Objects::nonNull);
+            this.lock = lock;
         }
 
         /**
@@ -778,12 +781,11 @@ public class Datastore<I, V>
         {
             Objects.requireNonNull(key);
             Collection<I> answer = new HashSet<I>();
-            synchronized (objectsByKey)
-            {
+            doWithLock(lock.readLock(), () -> {
                 Map<I, V> objects = objectsByKey.get(key);
                 if (objects != null)
                     answer.addAll(objects.keySet());
-            }
+            });
             return answer;
         }
 
@@ -798,12 +800,11 @@ public class Datastore<I, V>
         {
             Objects.requireNonNull(key);
             Collection<V> answer = new HashSet<V>();
-            synchronized (objectsByKey)
-            {
+            doWithLock(lock.readLock(), () -> {
                 Map<I, V> objects = objectsByKey.get(key);
                 if (objects != null)
                     answer.addAll(objects.values());
-            }
+            });
             return answer;
         }
 
@@ -820,15 +821,14 @@ public class Datastore<I, V>
             V castObject = objectType.cast(object);
             I identifier = identifierGetter.getIdentifier(castObject);
             Stream<K> keys = keysGetter.getKeys(castObject);
-            synchronized (objectsByKey)
-            {
+            doWithLock(lock.writeLock(), () -> {
                 keys.forEach(key -> {
                     Map<I, V> objects = objectsByKey.get(key);
                     if (objects == null)
                         objectsByKey.put(key, objects = new HashMap<>());
                     objects.put(identifier, castObject);
                 });
-            }
+            });
         }
 
         /**
@@ -844,14 +844,13 @@ public class Datastore<I, V>
             V castObject = objectType.cast(object);
             I identifier = identifierGetter.getIdentifier(castObject);
             Stream<K> keys = keysGetter.getKeys(castObject);
-            synchronized (objectsByKey)
-            {
+            doWithLock(lock.writeLock(), () -> {
                 keys.forEach(key -> {
                     Map<I, V> objects = objectsByKey.get(key);
                     if (objects != null && objects.remove(identifier) != null && objects.isEmpty())
                         objectsByKey.remove(key);
                 });
-            }
+            });
         }
 
         /**
