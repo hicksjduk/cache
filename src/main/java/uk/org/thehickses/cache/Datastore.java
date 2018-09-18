@@ -52,7 +52,7 @@ public class Datastore<I, V>
     private final ChangeProcessor<V> changeProcessor;
     private final ValueNormaliser<V> valueNormaliser;
     private final AdditionValidator<I, V> additionValidator;
-    private final Set<Index<?, ? extends I, ? extends V>> indices = new HashSet<>();
+    private final Set<Index<?, I, ? extends V>> indices = new HashSet<>();
     private final ReadWriteLock lock = new ReentrantReadWriteLock(true);
 
     public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter)
