@@ -398,9 +398,9 @@ public class Datastore<I, V>
      */
     private Result add(V value)
     {
-        I identifier = identifierGetter.getIdentifier(value);
-        V oldValue = storage.get(identifier);
         V newValue = valueNormaliser.normalise(value);
+        I identifier = identifierGetter.getIdentifier(newValue);
+        V oldValue = storage.get(identifier);
         try
         {
             additionValidator.validate(identifier, oldValue, newValue);
