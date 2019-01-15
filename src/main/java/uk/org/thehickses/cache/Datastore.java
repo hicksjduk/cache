@@ -34,7 +34,8 @@ import org.slf4j.LoggerFactory;
  * change by throwing an {@link InvalidAdditionException}.
  * </ul>
  * <p>
- * A datastore can also have any number of indices.
+ * A datastore can also have any number of indices, each of which is initialised by calling one of the variants of the
+ * {@link #index} method.
  * 
  * @author Jeremy Hicks
  *
@@ -144,8 +145,7 @@ public class Datastore<I, V>
     {
         Objects.requireNonNull(keysGetter);
         @SuppressWarnings("unchecked")
-        Index<K, I, V> index = new Index<>(obj -> (V) obj, identifierGetter, keysGetter,
-                lock);
+        Index<K, I, V> index = new Index<>(obj -> (V) obj, identifierGetter, keysGetter, lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
     }
@@ -786,8 +786,7 @@ public class Datastore<I, V>
         private Index(Function<Object, V> caster, IdentifierGetter<I, ? super V> identifierGetter,
                 KeyGetter<K, ? super V> keyGetter, ReadWriteLock lock)
         {
-            this(caster, identifierGetter, (KeysGetter<K, V>) v -> Stream.of(keyGetter.getKey(v)),
-                    lock);
+            this(caster, identifierGetter, keyGetter.toKeysGetter(), lock);
         }
 
         /**
@@ -954,6 +953,11 @@ public class Datastore<I, V>
          *         excluded.
          */
         K getKey(V value);
+
+        default KeysGetter<K, V> toKeysGetter()
+        {
+            return v -> Stream.of(getKey(v));
+        }
     }
 
     /**

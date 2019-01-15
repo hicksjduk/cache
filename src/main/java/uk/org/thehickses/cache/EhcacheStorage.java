@@ -21,7 +21,6 @@ public class EhcacheStorage<I, V> implements Storage<I, V>
 
     private final CacheManager cacheManager;
     private final Cache<I, V> cache;
-    private final CacheEventListener<I, V> evictionListener = this::processEviction;
 
     public EhcacheStorage(String name, CacheConfigurationBuilder<I, V> config)
     {
@@ -36,6 +35,7 @@ public class EhcacheStorage<I, V> implements Storage<I, V>
                         .with(CacheManagerBuilder.persistence(storagePath))
                         .build(true)
                 : CacheManagerBuilder.newCacheManagerBuilder().build(true);
+        CacheEventListener<I, V> evictionListener = this::processEviction;
         CacheEventListenerConfigurationBuilder listenerConfig = CacheEventListenerConfigurationBuilder
                 .newEventListenerConfiguration(evictionListener,
                         Collections.singleton(EventType.EVICTED));
