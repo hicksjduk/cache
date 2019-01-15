@@ -118,6 +118,41 @@ public class Datastore<I, V>
     /**
      * Creates an index into the datastore.
      * 
+     * @param keyGetter
+     *            an object that knows how to derive a single index key from an object of the type supported by the
+     *            index.
+     * @return the index.
+     */
+    public <K> Index<K, I, V> index(KeyGetter<K, ? super V> keyGetter)
+    {
+        Objects.requireNonNull(keyGetter);
+        @SuppressWarnings("unchecked")
+        Index<K, I, V> index = new Index<>(obj -> (V) obj, identifierGetter, keyGetter, lock);
+        doWithLock(lock.writeLock(), () -> addIndex(index));
+        return index;
+    }
+
+    /**
+     * Creates an index into the datastore.
+     * 
+     * @param keyGetter
+     *            an object that knows how to derive a stream of index keys from an object of the type supported by the
+     *            index.
+     * @return the index.
+     */
+    public <K> Index<K, I, V> index(KeysGetter<K, ? super V> keysGetter)
+    {
+        Objects.requireNonNull(keysGetter);
+        @SuppressWarnings("unchecked")
+        Index<K, I, V> index = new Index<>(obj -> (V) obj, identifierGetter, keysGetter,
+                lock);
+        doWithLock(lock.writeLock(), () -> addIndex(index));
+        return index;
+    }
+
+    /**
+     * Creates an index into the datastore.
+     * 
      * @param objectType
      *            the type of the objects that can be indexed. This can be a sub-type of the type supported by the
      *            datastore; objects that are not of the specified type (or its sub-types) are ignored by this index.
@@ -130,7 +165,8 @@ public class Datastore<I, V>
             KeyGetter<K, ? super U> keyGetter)
     {
         Stream.of(objectType, keyGetter).forEach(Objects::requireNonNull);
-        Index<K, I, U> index = new Index<>(objectType, identifierGetter, keyGetter, lock);
+        Index<K, I, U> index = new Index<>(Index.caster(objectType), identifierGetter, keyGetter,
+                lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
     }
@@ -150,7 +186,8 @@ public class Datastore<I, V>
             KeysGetter<K, ? super U> keysGetter)
     {
         Stream.of(objectType, keysGetter).forEach(Objects::requireNonNull);
-        Index<K, I, U> index = new Index<>(objectType, identifierGetter, keysGetter, lock);
+        Index<K, I, U> index = new Index<>(Index.caster(objectType), identifierGetter, keysGetter,
+                lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
     }
@@ -723,7 +760,7 @@ public class Datastore<I, V>
      */
     public static class Index<K, I, V>
     {
-        protected final Class<V> objectType;
+        private final Function<Object, V> caster;
 
         // NB because different objects can have the same index key, the objects for each key are stored in a
         // collection; and to support efficient removal that collection is a map where the key is the object's
@@ -746,11 +783,11 @@ public class Datastore<I, V>
          * @param keyGetter
          *            the key getter. May not be null.
          */
-        private Index(Class<V> objectType, IdentifierGetter<I, ? super V> identifierGetter,
+        private Index(Function<Object, V> caster, IdentifierGetter<I, ? super V> identifierGetter,
                 KeyGetter<K, ? super V> keyGetter, ReadWriteLock lock)
         {
-            this(objectType, identifierGetter,
-                    (KeysGetter<K, V>) v -> Stream.of(keyGetter.getKey(v)), lock);
+            this(caster, identifierGetter, (KeysGetter<K, V>) v -> Stream.of(keyGetter.getKey(v)),
+                    lock);
         }
 
         /**
@@ -763,10 +800,10 @@ public class Datastore<I, V>
          * @param keysGetter
          *            the key getter. May not be null.
          */
-        private Index(Class<V> objectType, IdentifierGetter<I, ? super V> identifierGetter,
+        private Index(Function<Object, V> caster, IdentifierGetter<I, ? super V> identifierGetter,
                 KeysGetter<K, ? super V> keysGetter, ReadWriteLock lock)
         {
-            this.objectType = objectType;
+            this.caster = caster;
             this.identifierGetter = obj -> Objects
                     .requireNonNull(identifierGetter.getIdentifier(obj));
             this.keysGetter = obj -> Objects
@@ -819,17 +856,16 @@ public class Datastore<I, V>
          */
         private void add(Object object)
         {
-            if (!objectType.isAssignableFrom(object.getClass()))
-                return;
-            V castObject = objectType.cast(object);
-            addObject(identifierGetter.getIdentifier(castObject), castObject);
+            V castObject = caster.apply(object);
+            if (castObject != null)
+                addObject(identifierGetter.getIdentifier(castObject), castObject);
         }
 
         private void add(I identifier, Object object)
         {
-            if (!objectType.isAssignableFrom(object.getClass()))
-                return;
-            addObject(identifier, objectType.cast(object));
+            V castObject = caster.apply(object);
+            if (castObject != null)
+                addObject(identifier, castObject);
         }
 
         private void addObject(I identifier, V object)
@@ -853,9 +889,9 @@ public class Datastore<I, V>
          */
         private void remove(Object object)
         {
-            if (!objectType.isAssignableFrom(object.getClass()))
+            V castObject = caster.apply(object);
+            if (castObject != null)
                 return;
-            V castObject = objectType.cast(object);
             I identifier = identifierGetter.getIdentifier(castObject);
             Stream<K> keys = keysGetter.getKeys(castObject);
             doWithLock(lock.writeLock(), () -> {
@@ -886,6 +922,15 @@ public class Datastore<I, V>
                 remove(oldValue);
             if (newValue != null)
                 add(newValue);
+        }
+
+        private static <V> Function<Object, V> caster(Class<V> objectType)
+        {
+            return obj -> {
+                if (objectType.isAssignableFrom(obj.getClass()))
+                    return objectType.cast(obj);
+                return null;
+            };
         }
     }
 
