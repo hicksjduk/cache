@@ -890,7 +890,7 @@ public class Datastore<I, V>
         private void remove(Object object)
         {
             V castObject = caster.apply(object);
-            if (castObject != null)
+            if (castObject == null)
                 return;
             I identifier = identifierGetter.getIdentifier(castObject);
             Stream<K> keys = keysGetter.getKeys(castObject);

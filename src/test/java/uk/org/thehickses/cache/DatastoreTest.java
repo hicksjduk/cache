@@ -403,8 +403,8 @@ public class DatastoreTest
                 ChangeProcessor<StoredObject> changeProcessor)
         {
             super(() -> storage, identifierGetter, changeProcessor, validator());
-            index1 = index(StoredObject.class, StoredObject::getValue1);
-            index2 = index(StoredObject.class, StoredObject::getValue2);
+            index1 = index(StoredObject::getValue1);
+            index2 = index(StoredObject::getValue2);
         }
     }
 
