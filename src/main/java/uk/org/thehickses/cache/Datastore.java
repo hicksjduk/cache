@@ -19,18 +19,18 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A class defining the functionality and interfaces of a datastore. The store is parameterised with the type of the
- * objects stored in it and the type of their identifiers.
+ * objects stored in it, and the type of their identifiers.
  * <p>
  * VERY IMPORTANT NOTE! This implementation relies on the stored objects being immutable, or at least their keys not
  * changing while they are in the store.
  * <p>
- * A datastore must be initialised with an {@link IdentifierGetter}, which knows how to derive the identifier of an
- * object from the object. It may also optionally be initialised with any of:
+ * A datastore must be initialised with a backing {@link Storage} implementation, and an {@link IdentifierGetter} which
+ * knows how to derive the identifier of an object from the object. It may also optionally be initialised with any of:
  * <ul>
- * <li>A {@link ChangeProcessor}, which is invoked whenever an object is added, changed or deleted.
- * <li>A {@link ValueNormaliser}, which is invoked whenever an object is added or changed, and which can be used to
+ * <li>A {@link ChangeProcessor}, which is invoked after an object is added, changed or deleted.
+ * <li>A {@link ValueNormaliser}, which is invoked before an object is added or changed, and which can be used to
  * normalise values.
- * <li>An {@link AdditionValidator}, which is invoked whenever an object is added or changed, and which can reject the
+ * <li>An {@link AdditionValidator}, which is invoked before an object is added or changed, and which can reject the
  * change by throwing an {@link InvalidAdditionException}.
  * </ul>
  * <p>
@@ -128,7 +128,8 @@ public class Datastore<I, V>
     {
         Objects.requireNonNull(keyGetter);
         @SuppressWarnings("unchecked")
-        Index<K, I, V> index = new Index<>(obj -> (V) obj, identifierGetter, keyGetter, lock);
+        Index<K, I, V> index = new Index<>(obj -> (V) obj, identifierGetter,
+                keyGetter.toKeysGetter(), lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
     }
@@ -136,7 +137,7 @@ public class Datastore<I, V>
     /**
      * Creates an index into the datastore.
      * 
-     * @param keyGetter
+     * @param keysGetter
      *            an object that knows how to derive a stream of index keys from an object of the type supported by the
      *            index.
      * @return the index.
@@ -165,8 +166,8 @@ public class Datastore<I, V>
             KeyGetter<K, ? super U> keyGetter)
     {
         Stream.of(objectType, keyGetter).forEach(Objects::requireNonNull);
-        Index<K, I, U> index = new Index<>(Index.caster(objectType), identifierGetter, keyGetter,
-                lock);
+        Index<K, I, U> index = new Index<>(Index.caster(objectType), identifierGetter,
+                keyGetter.toKeysGetter(), lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
     }
@@ -177,7 +178,7 @@ public class Datastore<I, V>
      * @param objectType
      *            the type of the objects that can be indexed. This can be a sub-type of the type supported by the
      *            datastore; objects that are not of the specified type (or its sub-types) are ignored by this index.
-     * @param keyGetter
+     * @param keysGetter
      *            an object that knows how to derive a stream of index keys from an object of the type supported by the
      *            index.
      * @return the index.
@@ -227,7 +228,7 @@ public class Datastore<I, V>
     @SafeVarargs
     public final void add(V... objects)
     {
-        add(false, Stream.of(Objects.requireNonNull(objects)));
+        add(Stream.of(Objects.requireNonNull(objects)));
     }
 
     /**
@@ -239,32 +240,7 @@ public class Datastore<I, V>
      */
     public void add(Collection<V> objects)
     {
-        add(false, Objects.requireNonNull(objects).stream());
-    }
-
-    /**
-     * Adds the specified object(s) to the store, replacing any existing contents. Any object in the store which have
-     * the same identifier as an input object is replaced by the new one; all other objects in the store are removed.
-     * 
-     * @param objects
-     *            the object(s). May be empty, but may not be null. If it contains any null objects, they are ignored.
-     */
-    @SafeVarargs
-    public final void addReplace(V... objects)
-    {
-        add(true, Stream.of(Objects.requireNonNull(objects)));
-    }
-
-    /**
-     * Adds the specified object(s) to the store, replacing any existing contents. Any object in the store which have
-     * the same identifier as an input object is replaced by the new one; all other objects in the store are removed.
-     * 
-     * @param objects
-     *            the object(s). May be empty, but may not be null. If it contains any null objects, they are ignored.
-     */
-    public void addReplace(Collection<V> objects)
-    {
-        add(true, Objects.requireNonNull(objects).stream());
+        add(Objects.requireNonNull(objects).stream());
     }
 
     /**
@@ -278,9 +254,50 @@ public class Datastore<I, V>
      *            the stream containing the objects to add. May be empty, but may not be null. If it contains any null
      *            objects, they are ignored.
      */
-    private void add(boolean replace, Stream<V> objects)
+    private void add(Stream<V> objects)
     {
-        doWithLock(lock.writeLock(), adder(replace, objects)).forEach(Result::process);
+        doWithLock(lock.writeLock(), adder(objects)).forEach(Result::process);
+    }
+
+    /**
+     * Adds the specified object(s) to the store, replacing any existing contents. Any object in the store which have
+     * the same identifier as an input object is replaced by the new one; all other objects in the store are removed.
+     * 
+     * @param objects
+     *            the object(s). May be empty, but may not be null. If it contains any null objects, they are ignored.
+     */
+    @SafeVarargs
+    public final void addReplace(V... objects)
+    {
+        addReplace(Stream.of(Objects.requireNonNull(objects)));
+    }
+
+    /**
+     * Adds the specified object(s) to the store, replacing any existing contents. Any object in the store which have
+     * the same identifier as an input object is replaced by the new one; all other objects in the store are removed.
+     * 
+     * @param objects
+     *            the object(s). May be empty, but may not be null. If it contains any null objects, they are ignored.
+     */
+    public void addReplace(Collection<V> objects)
+    {
+        addReplace(Objects.requireNonNull(objects).stream());
+    }
+
+    /**
+     * Adds the object(s) in the specified stream to the store. This method should always be called by other
+     * "addReplace" methods, since it handles locking correctly.
+     * 
+     * @param replace
+     *            whether the object(s) should replace the current contents of the store, in which case all existing
+     *            objects in the store whose keys do not match those of any of the input objects are removed.
+     * @param objects
+     *            the stream containing the objects to add. May be empty, but may not be null. If it contains any null
+     *            objects, they are ignored.
+     */
+    private void addReplace(Stream<V> objects)
+    {
+        doWithLock(lock.writeLock(), addReplacer(objects)).forEach(Result::process);
     }
 
     /**
@@ -296,14 +313,21 @@ public class Datastore<I, V>
      * @return the results of adding and/or removing objects. May be empty, but may not be null or contain any null
      *         objects.
      */
-    private Supplier<Stream<Result>> adder(boolean replace, Stream<V> newObjects)
+    private Supplier<Stream<Result>> adder(Stream<V> newObjects)
+    {
+        Stream<Supplier<Result>> transactions = newObjects
+                .filter(Objects::nonNull)
+                .map(this::adder);
+        return () -> transactions.map(Supplier::get);
+    }
+
+    private Supplier<Stream<Result>> addReplacer(Stream<V> newObjects)
     {
         Map<I, Supplier<Result>> transactionsByKey = newObjects.filter(Objects::nonNull).collect(
                 Collectors.toMap(identifierGetter::getIdentifier, this::adder));
+        storage.identifiers().filter(k -> !transactionsByKey.containsKey(k)).forEach(
+                k -> transactionsByKey.put(k, remover(k)));
         return () -> {
-            if (replace)
-                storage.identifiers().filter(k -> !transactionsByKey.containsKey(k)).forEach(
-                        k -> transactionsByKey.put(k, remover(k)));
             return transactionsByKey.values().stream().map(Supplier::get);
         };
     }
@@ -521,15 +545,10 @@ public class Datastore<I, V>
      */
     private static void doWithLock(Lock lock, Runnable processor)
     {
-        lock.lock();
-        try
-        {
+        doWithLock(lock, () -> {
             processor.run();
-        }
-        finally
-        {
-            lock.unlock();
-        }
+            return null;
+        });
     }
 
     /**
@@ -745,8 +764,7 @@ public class Datastore<I, V>
      * to support different data types; an object that is not of a supported type is simply ignored by the index.
      * <li>An IdentifierGetter that knows how to get the identifier which uniquely identifies any indexed object. This
      * is the same as is used by the containing datastore.
-     * <li>A way of getting the index key(s) for any indexed object. There are two alternative interfaces: KeyGetter
-     * which supports only one index key per object, and KeysGetter which supports multiple keys.
+     * <li>A way of getting the index key(s) for any indexed object.
      * </ul>
      * 
      * @author Jeremy Hicks
@@ -772,22 +790,6 @@ public class Datastore<I, V>
         private final KeysGetter<K, ? super V> keysGetter;
 
         private final ReadWriteLock lock;
-
-        /**
-         * Initialises the index with the specified object type, identifier getter and (single) key getter.
-         * 
-         * @param objectType
-         *            the object type. May not be null.
-         * @param identifierGetter
-         *            the identifier getter. May not be null.
-         * @param keyGetter
-         *            the key getter. May not be null.
-         */
-        private Index(Function<Object, V> caster, IdentifierGetter<I, ? super V> identifierGetter,
-                KeyGetter<K, ? super V> keyGetter, ReadWriteLock lock)
-        {
-            this(caster, identifierGetter, keyGetter.toKeysGetter(), lock);
-        }
 
         /**
          * Initialises the index with the specified object type, identifier getter and (multiple) key getter.
