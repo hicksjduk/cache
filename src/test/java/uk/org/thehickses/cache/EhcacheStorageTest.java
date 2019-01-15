@@ -31,7 +31,7 @@ public class EhcacheStorageTest
         return new EhcacheStorage<>("storage",
                 CacheConfigurationBuilder.newCacheConfigurationBuilder(Integer.class, TestObj.class,
                         ResourcePoolsBuilder.heap(1000).disk(50, MemoryUnit.MB)),
-                new File(".data/diskCache"));
+                new File("diskCache"));
     }
 
     private static class TestObj implements Serializable
