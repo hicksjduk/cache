@@ -325,9 +325,9 @@ public class Datastore<I, V>
     {
         Map<I, Supplier<Result>> transactionsByKey = newObjects.filter(Objects::nonNull).collect(
                 Collectors.toMap(identifierGetter::getIdentifier, this::adder));
-        storage.identifiers().filter(k -> !transactionsByKey.containsKey(k)).forEach(
-                k -> transactionsByKey.put(k, remover(k)));
         return () -> {
+            storage.identifiers().filter(k -> !transactionsByKey.containsKey(k)).forEach(
+                    k -> transactionsByKey.put(k, remover(k)));
             return transactionsByKey.values().stream().map(Supplier::get);
         };
     }
