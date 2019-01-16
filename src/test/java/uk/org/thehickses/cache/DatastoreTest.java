@@ -4,8 +4,6 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -19,7 +17,6 @@ import uk.org.thehickses.cache.Datastore.ChangeProcessor;
 import uk.org.thehickses.cache.Datastore.IdentifierGetter;
 import uk.org.thehickses.cache.Datastore.Index;
 import uk.org.thehickses.cache.Datastore.KeyGetter;
-import uk.org.thehickses.cache.Datastore.Storage;
 
 public class DatastoreTest
 {
@@ -266,7 +263,7 @@ public class DatastoreTest
 
     private void verifyPresent(StoredObject o)
     {
-        assertThat(storage.store.get(o.getKey())).isSameAs(o);
+        assertThat(storage.get(o.getKey())).isSameAs(o);
         Stream
                 .of(indexValidator(datastore.index1, o.getValue1(), o),
                         indexValidator(datastore.index2, o.getValue2(), o))
@@ -285,7 +282,7 @@ public class DatastoreTest
     private void verifyAbsent(StoredObject o)
     {
         Condition<StoredObject> exactMatch = exactMatch(o);
-        assertThat(storage.store.get(o.getKey())).isNotSameAs(o);
+        assertThat(storage.get(o.getKey())).isNotSameAs(o);
         assertThat(datastore.index1.getObjects(o.getValue1())).doNotHave(exactMatch);
         assertThat(datastore.index2.getObjects(o.getValue2())).doNotHave(exactMatch);
     }
@@ -365,34 +362,8 @@ public class DatastoreTest
         }
     }
 
-    private static class TestStorage implements Storage<String, StoredObject>
+    private static class TestStorage extends InMemoryStorage<String, StoredObject>
     {
-        private final Map<String, StoredObject> store = new HashMap<>();
-
-        @Override
-        public StoredObject get(String identifier)
-        {
-            return store.get(identifier);
-        }
-
-        @Override
-        public Stream<String> identifiers()
-        {
-            return store.keySet().stream();
-        }
-
-        @Override
-        public void put(String identifier, StoredObject value)
-        {
-            store.put(identifier, value);
-        }
-
-        @Override
-        public StoredObject remove(String identifier)
-        {
-            return store.remove(identifier);
-        }
-
     }
 
     private static class TestDatastore extends Datastore<String, StoredObject>
