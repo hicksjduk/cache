@@ -549,6 +549,8 @@ public class Datastore<I, V>
     /**
      * An interface defining a change processor, which is called whenever the store changes.
      *
+     * <p>This is a functional interface whose functional method is {@link #processChange(Object, Object)}.
+     *
      * @param <V>
      *            the type of the objects processed.
      */
@@ -580,6 +582,8 @@ public class Datastore<I, V>
     /**
      * An interface defining a value normaliser, which is called to normalise any value before it is added to the store.
      *
+     * <p>This is a functional interface whose functional method is {@link #normalise(Object)}.
+     *
      * @param <V>
      *            the type of the objects processed.
      */
@@ -604,6 +608,8 @@ public class Datastore<I, V>
     /**
      * An interface defining an addition validator, which is called to validate the addition of an object before it is
      * added.
+     * 
+     * <p>This is a functional interface whose functional method is {@link #validate(Object, Object, Object)}.
      *
      * @param <I>
      *            the type of the identifier which identifies the objects processed.
@@ -867,6 +873,8 @@ public class Datastore<I, V>
     /**
      * An interface defining an object that can get a single index key from an object.
      *
+     * <p>This is a functional interface whose functional method is {@link #getKey(Object)}.
+     *
      * @param <K>
      *            the type of the key.
      * @param <V>
@@ -893,6 +901,8 @@ public class Datastore<I, V>
 
     /**
      * An interface defining an object that can get multiple index keys from a single object.
+     *
+     * <p>This is a functional interface whose functional method is {@link #getKeys(Object)}.
      *
      * @param <K>
      *            the type of the keys.

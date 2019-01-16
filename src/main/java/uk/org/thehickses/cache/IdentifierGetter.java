@@ -3,6 +3,8 @@ package uk.org.thehickses.cache;
 /**
  * An object that gets an identifier for an object.
  * 
+ * <p>This is a functional interface whose functional method is {@link #getIdentifier(Object)}.
+ * 
  * @author Jeremy Hicks
  *
  * @param <I>
