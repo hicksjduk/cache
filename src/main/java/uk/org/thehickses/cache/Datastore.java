@@ -57,12 +57,37 @@ public class Datastore<I, V>
     private final Set<Index<?, I, ? extends V>> indices = new HashSet<>();
     private final ReadWriteLock lock = new ReentrantReadWriteLock(true);
 
+    /**
+     * Initialises the datastore with the specified storage supplier and identifier getter, and default values for the
+     * other parameters.
+     * 
+     * @param storage
+     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
+     *            null value.
+     * @param identifierGetter
+     *            an object that knows how to get the identifier of an object. May not be null, or return a null value
+     *            for any object.
+     */
     public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter)
     {
         this(storage, identifierGetter, ChangeProcessor.noOp(), ValueNormaliser.noOp(),
                 AdditionValidator.noOp());
     }
 
+    /**
+     * Initialises the datastore with the specified storage supplier, identifier getter and change processor, and
+     * default values for the other parameters.
+     * 
+     * @param storage
+     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
+     *            null value.
+     * @param identifierGetter
+     *            an object that knows how to get the identifier of an object. May not be null, or return a null value
+     *            for any object.
+     * @param changeProcessor
+     *            an object that should be called to process any change to the contents of the datastore. May not be
+     *            null.
+     */
     public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
             ChangeProcessor<V> changeProcessor)
     {
@@ -70,6 +95,20 @@ public class Datastore<I, V>
                 AdditionValidator.noOp());
     }
 
+    /**
+     * Initialises the datastore with the specified storage supplier, identifier getter and value normaliser, and
+     * default values for the other parameters.
+     * 
+     * @param storage
+     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
+     *            null value.
+     * @param identifierGetter
+     *            an object that knows how to get the identifier of an object. May not be null, or return a null value
+     *            for any object.
+     * @param valueNormaliser
+     *            an object that should be called to normalise an object before it is added or updated in the datastore.
+     *            May not be null, or return a null value for any object.
+     */
     public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
             ValueNormaliser<V> valueNormaliser)
     {
@@ -77,6 +116,20 @@ public class Datastore<I, V>
                 AdditionValidator.noOp());
     }
 
+    /**
+     * Initialises the datastore with the specified storage supplier, identifier getter and addition validator, and
+     * default values for the other parameters.
+     * 
+     * @param storage
+     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
+     *            null value.
+     * @param identifierGetter
+     *            an object that knows how to get the identifier of an object. May not be null, or return a null value
+     *            for any object.
+     * @param additionValidator
+     *            an object that should be called to validate the addition or update of an object in the datastore, and
+     *            which may veto the operation by throwing an {@link InvalidAdditionException}. May not be null.
+     */
     public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
             AdditionValidator<I, V> additionValidator)
     {
@@ -84,24 +137,94 @@ public class Datastore<I, V>
                 additionValidator);
     }
 
+    /**
+     * Initialises the datastore with the specified storage supplier, identifier getter, change processor and addition
+     * validator, and default values for the other parameters.
+     * 
+     * @param storage
+     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
+     *            null value.
+     * @param identifierGetter
+     *            an object that knows how to get the identifier of an object. May not be null, or return a null value
+     *            for any object.
+     * @param changeProcessor
+     *            an object that should be called to process any change to the contents of the datastore. May not be
+     *            null.
+     * @param additionValidator
+     *            an object that should be called to validate the addition or update of an object in the datastore, and
+     *            which may veto the operation by throwing an {@link InvalidAdditionException}. May not be null.
+     */
     public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
             ChangeProcessor<V> changeProcessor, AdditionValidator<I, V> additionValidator)
     {
         this(storage, identifierGetter, changeProcessor, ValueNormaliser.noOp(), additionValidator);
     }
 
+    /**
+     * Initialises the datastore with the specified storage supplier, identifier getter, value normaliser and addition
+     * validator, and default values for the other parameters.
+     * 
+     * @param storage
+     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
+     *            null value.
+     * @param identifierGetter
+     *            an object that knows how to get the identifier of an object. May not be null, or return a null value
+     *            for any object.
+     * @param valueNormaliser
+     *            an object that should be called to normalise an object before it is added or updated in the datastore.
+     *            May not be null, or return a null value for any object.
+     * @param additionValidator
+     *            an object that should be called to validate the addition or update of an object in the datastore, and
+     *            which may veto the operation by throwing an {@link InvalidAdditionException}. May not be null.
+     */
     public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
             ValueNormaliser<V> valueNormaliser, AdditionValidator<I, V> additionValidator)
     {
         this(storage, identifierGetter, ChangeProcessor.noOp(), valueNormaliser, additionValidator);
     }
 
+    /**
+     * Initialises the datastore with the specified storage supplier, identifier getter, change processor and value
+     * normaliser, and default values for the other parameters.
+     * 
+     * @param storage
+     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
+     *            null value.
+     * @param identifierGetter
+     *            an object that knows how to get the identifier of an object. May not be null, or return a null value
+     *            for any object.
+     * @param changeProcessor
+     *            an object that should be called to process any change to the contents of the datastore. May not be
+     *            null.
+     * @param valueNormaliser
+     *            an object that should be called to normalise an object before it is added or updated in the datastore.
+     */
     public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
             ChangeProcessor<V> changeProcessor, ValueNormaliser<V> valueNormaliser)
     {
         this(storage, identifierGetter, changeProcessor, valueNormaliser, AdditionValidator.noOp());
     }
 
+    /**
+     * Initialises the datastore with the specified storage supplier, identifier getter, change processor, value
+     * normaliser and addition validator.
+     * 
+     * @param storage
+     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
+     *            null value.
+     * @param identifierGetter
+     *            an object that knows how to get the identifier of an object. May not be null, or return a null value
+     *            for any object.
+     * @param changeProcessor
+     *            an object that should be called to process any change to the contents of the datastore. May not be
+     *            null.
+     * @param valueNormaliser
+     *            an object that should be called to normalise an object before it is added or updated in the datastore.
+     *            May not be null, or return a null value for any object.
+     * @param additionValidator
+     *            an object that should be called to validate the addition or update of an object in the datastore, and
+     *            which may veto the operation by throwing an {@link InvalidAdditionException}. May not be null.
+     */
     public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
             ChangeProcessor<V> changeProcessor, ValueNormaliser<V> valueNormaliser,
             AdditionValidator<I, V> additionValidator)
@@ -121,17 +244,14 @@ public class Datastore<I, V>
      * 
      * @param keyGetter
      *            an object that knows how to derive a single index key from an object of the type supported by the
-     *            index.
+     *            index. May not be null, but may return null for a given object.
      * @return the index.
      */
+    @SuppressWarnings("unchecked")
     public <K> Index<K, I, V> index(KeyGetter<K, ? super V> keyGetter)
     {
         Objects.requireNonNull(keyGetter);
-        @SuppressWarnings("unchecked")
-        Index<K, I, V> index = new Index<>(storage, obj -> (V) obj, identifierGetter,
-                keyGetter.toKeysGetter(), lock);
-        doWithLock(lock.writeLock(), () -> addIndex(index));
-        return index;
+        return index(obj -> (V) obj, keyGetter.toKeysGetter());
     }
 
     /**
@@ -139,17 +259,14 @@ public class Datastore<I, V>
      * 
      * @param keysGetter
      *            an object that knows how to derive a stream of index keys from an object of the type supported by the
-     *            index.
+     *            index. May not be null or return null, although it may return an empty stream.
      * @return the index.
      */
+    @SuppressWarnings("unchecked")
     public <K> Index<K, I, V> index(KeysGetter<K, ? super V> keysGetter)
     {
         Objects.requireNonNull(keysGetter);
-        @SuppressWarnings("unchecked")
-        Index<K, I, V> index = new Index<>(storage, obj -> (V) obj, identifierGetter, keysGetter,
-                lock);
-        doWithLock(lock.writeLock(), () -> addIndex(index));
-        return index;
+        return index(obj -> (V) obj, keysGetter);
     }
 
     /**
@@ -160,17 +277,14 @@ public class Datastore<I, V>
      *            datastore; objects that are not of the specified type (or its sub-types) are ignored by this index.
      * @param keyGetter
      *            an object that knows how to derive a single index key from an object of the type supported by the
-     *            index.
+     *            index. May not be null, but may return null for a given object.
      * @return the index.
      */
     public <K, U extends V> Index<K, I, U> index(Class<U> objectType,
             KeyGetter<K, ? super U> keyGetter)
     {
         Stream.of(objectType, keyGetter).forEach(Objects::requireNonNull);
-        Index<K, I, U> index = new Index<>(storage, Index.caster(objectType), identifierGetter,
-                keyGetter.toKeysGetter(), lock);
-        doWithLock(lock.writeLock(), () -> addIndex(index));
-        return index;
+        return index(Index.caster(objectType), keyGetter.toKeysGetter());
     }
 
     /**
@@ -181,25 +295,25 @@ public class Datastore<I, V>
      *            datastore; objects that are not of the specified type (or its sub-types) are ignored by this index.
      * @param keysGetter
      *            an object that knows how to derive a stream of index keys from an object of the type supported by the
-     *            index.
+     *            index. May not be null or return null, although it may return an empty stream.
      * @return the index.
      */
     public <K, U extends V> Index<K, I, U> index(Class<U> objectType,
             KeysGetter<K, ? super U> keysGetter)
     {
         Stream.of(objectType, keysGetter).forEach(Objects::requireNonNull);
-        Index<K, I, U> index = new Index<>(storage, Index.caster(objectType), identifierGetter,
-                keysGetter, lock);
-        doWithLock(lock.writeLock(), () -> addIndex(index));
-        return index;
+        return index(Index.caster(objectType), keysGetter);
     }
 
-    /**
-     * Adds the specified index to the store.
-     * 
-     * @param index
-     *            the index. May not be null.
-     */
+    private <K, U extends V> Index<K, I, U> index(Function<Object, U> caster,
+            KeysGetter<K, ? super U> keysGetter)
+    {
+        Index<K, I, U> index = new Index<>(storage, caster, identifierGetter, keysGetter, lock);
+        doWithLock(lock.writeLock(), () -> addIndex(index));
+        return index;
+
+    }
+
     private <K, U extends V> void addIndex(Index<K, I, U> index)
     {
         indices.add(index);
@@ -244,25 +358,14 @@ public class Datastore<I, V>
         add(Objects.requireNonNull(objects).stream());
     }
 
-    /**
-     * Adds the object(s) in the specified stream to the store. This method should always be called by other "add"
-     * methods, since it handles locking correctly.
-     * 
-     * @param replace
-     *            whether the object(s) should replace the current contents of the store, in which case all existing
-     *            objects in the store whose keys do not match those of any of the input objects are removed.
-     * @param objects
-     *            the stream containing the objects to add. May be empty, but may not be null. If it contains any null
-     *            objects, they are ignored.
-     */
     private void add(Stream<V> objects)
     {
         doWithLock(lock.writeLock(), adder(objects)).forEach(Result::process);
     }
 
     /**
-     * Adds the specified object(s) to the store, replacing any existing contents. Any object in the store which have
-     * the same identifier as an input object is replaced by the new one; all other objects in the store are removed.
+     * Adds the specified object(s) to the store, replacing any existing contents. Any object in the store which has the
+     * same identifier as an input object is replaced by the new one; all other objects in the store are removed.
      * 
      * @param objects
      *            the object(s). May be empty, but may not be null. If it contains any null objects, they are ignored.
@@ -274,8 +377,8 @@ public class Datastore<I, V>
     }
 
     /**
-     * Adds the specified object(s) to the store, replacing any existing contents. Any object in the store which have
-     * the same identifier as an input object is replaced by the new one; all other objects in the store are removed.
+     * Adds the specified object(s) to the store, replacing any existing contents. Any object in the store which has the
+     * same identifier as an input object is replaced by the new one; all other objects in the store are removed.
      * 
      * @param objects
      *            the object(s). May be empty, but may not be null. If it contains any null objects, they are ignored.
@@ -285,35 +388,11 @@ public class Datastore<I, V>
         addReplace(Objects.requireNonNull(objects).stream());
     }
 
-    /**
-     * Adds the object(s) in the specified stream to the store. This method should always be called by other
-     * "addReplace" methods, since it handles locking correctly.
-     * 
-     * @param replace
-     *            whether the object(s) should replace the current contents of the store, in which case all existing
-     *            objects in the store whose keys do not match those of any of the input objects are removed.
-     * @param objects
-     *            the stream containing the objects to add. May be empty, but may not be null. If it contains any null
-     *            objects, they are ignored.
-     */
     private void addReplace(Stream<V> objects)
     {
         doWithLock(lock.writeLock(), addReplacer(objects)).forEach(Result::process);
     }
 
-    /**
-     * Gets an object which when its {@link Supplier#get()} method is called performs the specified add operation and
-     * returns a stream of results.
-     * 
-     * @param replace
-     *            whether the specified object(s) should replace the current contents of the store, in which case all
-     *            existing objects in the store whose keys do not match those of any of the input objects are removed.
-     * @param newObjects
-     *            the object(s) to add. May be empty, but may not be null. If it contains any null objects, they are
-     *            ignored.
-     * @return the results of adding and/or removing objects. May be empty, but may not be null or contain any null
-     *         objects.
-     */
     private Supplier<Stream<Result>> adder(Stream<V> newObjects)
     {
         Stream<Supplier<Result>> transactions = newObjects
@@ -333,13 +412,6 @@ public class Datastore<I, V>
         };
     }
 
-    /**
-     * Processes the result of adding an object to the store, by logging the outcome and notifying the change processor
-     * if an actual change has taken place.
-     * 
-     * @param result
-     *            the result. May not be null.
-     */
     private void processResult(AddResult result)
     {
         if (result.exception != null)
@@ -357,6 +429,9 @@ public class Datastore<I, V>
             changeProcessor.processChange(result.oldValue, result.newValue);
     }
 
+    /**
+     * Clears the datastore, by deleting all objects it contains.
+     */
     public void clear()
     {
         addReplace();
@@ -367,7 +442,7 @@ public class Datastore<I, V>
      * 
      * @param identifiers
      *            the identifier(s). May be empty, but may not be null. If it contains any null objects, they are
-     *            ignored.
+     *            ignored. If any identifier is not that of an object in the store, it has no effect.
      */
     @SafeVarargs
     public final void remove(I... identifiers)
@@ -380,33 +455,18 @@ public class Datastore<I, V>
      * 
      * @param identifiers
      *            the identifier(s). May be empty, but may not be null. If it contains any null objects, they are
-     *            ignored.
+     *            ignored. If any identifier is not that of an object in the store, it has no effect.
      */
     public void remove(Collection<I> identifiers)
     {
         remove(Objects.requireNonNull(identifiers).stream());
     }
 
-    /**
-     * Removes the object(s) whose identifier(s) are in the specified stream from the store. This method should always
-     * be called by other "remove" methods, since it handles locking correctly.
-     * 
-     * @param identifiers
-     *            the stream containing the identifiers to remove. May be empty, but may not be null. If it contains any
-     *            null objects, they are ignored.
-     */
     private void remove(Stream<I> identifiers)
     {
         doWithLock(lock.writeLock(), remover(identifiers)).forEach(Result::process);
     }
 
-    /**
-     * Processes the result of removing an object from the store, by logging the outcome and notifying the change
-     * processor if one is registered and an actual change has taken place.
-     * 
-     * @param result
-     *            the result. May not be null.
-     */
     private void processResult(RemoveResult result)
     {
         if (result.oldValue == null)
@@ -418,46 +478,16 @@ public class Datastore<I, V>
         changeProcessor.processChange(result.oldValue, null);
     }
 
-    /**
-     * Updates the store's indices to reflect the specified change. The change may be:
-     * <ul>
-     * <li>an add ({@code oldValue} is null, {@code newValue} is not)
-     * <li>a replace (both {@code oldValue} and {@code newValue} are non-null)
-     * <li>a delete ({@code newValue} is null, {@code oldValue} is not)
-     * </ul>
-     * 
-     * @param oldValue
-     *            the object that was removed from the store, or null if none was.
-     * @param newValue
-     *            the object that was added to the store, or null if none was.
-     */
     private void updateIndices(V oldValue, V newValue)
     {
         indices.stream().forEach(i -> i.update(oldValue, newValue));
     }
 
-    /**
-     * Gets an "adder" object which attempts to add the specified object to the store.
-     * 
-     * @param value
-     *            the object to add. May not be null.
-     * @return an object which when its {@link Supplier.get()} method is called tries to add the object and returns an
-     *         object that contains details of the outcome.
-     */
     private Supplier<Result> adder(V value)
     {
         return () -> add(value);
     }
 
-    /**
-     * Attempts to add the specified object to the store. The value may be normalised, if a {@link ValueNormaliser} is
-     * configured, and the addition may be rejected, if an {@link AdditionValidator} is configured. If the addition is
-     * not rejected, the value is added to the store, replacing any existing object with the same identifier.
-     * 
-     * @param value
-     *            the object. May not be null.
-     * @return the result of the addition.
-     */
     private Result add(V value)
     {
         V newValue = valueNormaliser.normalise(value);
@@ -476,14 +506,6 @@ public class Datastore<I, V>
         return new AddResult(identifier, oldValue, newValue);
     }
 
-    /**
-     * Gets a "remover" object which attempts to remove the specified identifier from the store.
-     * 
-     * @param identifier
-     *            the identifier to remove. May not be null.
-     * @return an object which when its {@link Supplier.get()} method is called tries to remove the identifier and
-     *         returns an object that contains details of the outcome.
-     */
     private Supplier<Result> remover(I identifier)
     {
         return () -> remove(identifier);
@@ -497,31 +519,12 @@ public class Datastore<I, V>
         return new RemoveResult(identifier, oldValue);
     }
 
-    /**
-     * Gets a "remover" object which attempts to remove all the specified identifiers from the store.
-     * 
-     * @param identifiers
-     *            the identifier(s) to remove. May be empty, but may not be null. If it contains any null objects, they
-     *            are ignored.
-     * @return an object which when its {@link Supplier.get()} method is called tries to remove the identifiers and
-     *         returns a stream of objects containing details of the outcome of each removal.
-     */
     private Supplier<Stream<Result>> remover(Stream<I> identifiers)
     {
         Stream<Supplier<Result>> removers = identifiers.filter(Objects::nonNull).map(this::remover);
         return () -> removers.map(Supplier::get);
     }
 
-    /**
-     * Invokes the specified object, with the specified lock locked.
-     * 
-     * @param lock
-     *            the lock. May not be null. If the lock is unavailable because another thread has locked it, the method
-     *            blocks until it becomes available.
-     * @param processor
-     *            the object which is to be invoked. May not be null.
-     * @return the result of invoking the object. May be null.
-     */
     private static <T> T doWithLock(Lock lock, Supplier<T> processor)
     {
         lock.lock();
@@ -535,15 +538,6 @@ public class Datastore<I, V>
         }
     }
 
-    /**
-     * Invokes the specified object, with the specified lock locked.
-     * 
-     * @param lock
-     *            the lock. May not be null. If the lock is unavailable because another thread has locked it, the method
-     *            blocks until it becomes available.
-     * @param processor
-     *            the object which is to be invoked. May not be null.
-     */
     private static void doWithLock(Lock lock, Runnable processor)
     {
         doWithLock(lock, () -> {
@@ -667,43 +661,17 @@ public class Datastore<I, V>
         }
     }
 
-    /**
-     * The result of an operation that changes the store.
-     */
     private interface Result
     {
-        /**
-         * Processes the operation.
-         */
         void process();
     }
 
-    /**
-     * The result of a request to add an object to the store.
-     */
     private class AddResult implements Result
     {
-        /**
-         * The identifier of the object whose addition was requested.
-         */
-        private final I identifier;
-        /**
-         * The object with the specified identifier that was in the store before the request was made. May be null, if
-         * there was no object with that identifier. If the request failed validation, this object is still in the
-         * store; if the request passed validation, it is no longer in the store and has been replaced by
-         * {@link newValue}.
-         */
-        private final V oldValue;
-        /**
-         * The object whose addition was requested. If the request failed validation, this object was not added to the
-         * store; if the request passed validation, this object was added.
-         */
-        private final V newValue;
-        /**
-         * If not null, the request failed validation and so no changes were made. If null, the requested change was
-         * made.
-         */
-        private final InvalidAdditionException exception;
+        public final I identifier;
+        public final V oldValue;
+        public final V newValue;
+        public final InvalidAdditionException exception;
 
         public AddResult(I identifier, V oldValue, V newValue)
         {
@@ -725,20 +693,10 @@ public class Datastore<I, V>
         }
     }
 
-    /**
-     * The result of a request to remove an identifier from the store.
-     */
     private class RemoveResult implements Result
     {
-        /**
-         * The identifier whose removal was requested.
-         */
-        private final I identifier;
-        /**
-         * The object with the specified identifier that was in the store before the request was made. May be null, if
-         * there was no existing object. This object is no longer in the store as a result of the request.
-         */
-        private final V oldValue;
+        public final I identifier;
+        public final V oldValue;
 
         public RemoveResult(I identifier, V oldValue)
         {
@@ -759,14 +717,8 @@ public class Datastore<I, V>
      * Note that this implementation relies on the stored objects being immutable, or at least their identifiers and
      * index keys not being changed while they are in the datastore.
      * <p>
-     * The index is initialised with:
-     * <ul>
-     * <li>The type of the objects that can be indexed by the index. This allows different indices in the same datastore
-     * to support different data types; an object that is not of a supported type is simply ignored by the index.
-     * <li>An IdentifierGetter that knows how to get the identifier which uniquely identifies any indexed object. This
-     * is the same as is used by the containing datastore.
-     * <li>A way of getting the index key(s) for any indexed object.
-     * </ul>
+     * Instances of this class are not created directly, but by calling one of the variants of the
+     * {@link Datastore#index} method of the datastore on which the index is to be created.
      * 
      * @author Jeremy Hicks
      * 
@@ -791,16 +743,6 @@ public class Datastore<I, V>
 
         private final ReadWriteLock lock;
 
-        /**
-         * Initialises the index with the specified object type, identifier getter and (multiple) key getter.
-         * 
-         * @param objectType
-         *            the object type. May not be null.
-         * @param identifierGetter
-         *            the identifier getter. May not be null.
-         * @param keysGetter
-         *            the key getter. May not be null.
-         */
         private Index(Storage<I, ? super V> storage, Function<Object, V> caster,
                 IdentifierGetter<I, ? super V> identifierGetter,
                 KeysGetter<K, ? super V> keysGetter, ReadWriteLock lock)
@@ -814,7 +756,12 @@ public class Datastore<I, V>
                     .filter(Objects::nonNull);
             this.lock = lock;
         }
-        
+
+        /**
+         * Gets the keys, if any, which index objects in the index.
+         * 
+         * @return the keys. May be empty, but may not be null.
+         */
         public Stream<K> getKeys()
         {
             Stream.Builder<K> builder = Stream.builder();
@@ -829,7 +776,7 @@ public class Datastore<I, V>
          * 
          * @param key
          *            the key. May not be null.
-         * @return the associated identifiers, if there are any. May be empty, but is never null.
+         * @return the associated identifiers, if there are any. May be empty, but may not be null.
          */
         public Stream<I> getIdentifiers(K key)
         {
@@ -852,15 +799,10 @@ public class Datastore<I, V>
          */
         public Stream<V> getObjects(K key)
         {
-            return getIdentifiers(key).map(storage::get).map(caster::apply);
+            return doWithLock(lock.readLock(), () -> getIdentifiers(key).map(storage::get))
+                    .map(caster::apply);
         }
 
-        /**
-         * Adds the specified object to the index, if it is of the supported type.
-         * 
-         * @param object
-         *            the object. May not be null.
-         */
         private void add(Object object)
         {
             V castObject = caster.apply(object);
@@ -888,12 +830,6 @@ public class Datastore<I, V>
             });
         }
 
-        /**
-         * Removes the specified object from the index, if it is of the supported type.
-         * 
-         * @param object
-         *            the object. May not be null.
-         */
         private void remove(Object object)
         {
             V castObject = caster.apply(object);
@@ -910,19 +846,6 @@ public class Datastore<I, V>
             });
         }
 
-        /**
-         * Updates the index to reflect the specified change. The change may be:
-         * <ul>
-         * <li>an add (oldValue is null, newValue is not)
-         * <li>a replace (both oldValue and newValue are non-null)
-         * <li>a delete (newValue is null, oldValue is not)
-         * </ul>
-         * 
-         * @param oldValue
-         *            the object that was removed from the store, or null if none was.
-         * @param newValue
-         *            the object that was added to the store, or null if none was.
-         */
         private void update(Object oldValue, Object newValue)
         {
             if (oldValue != null)
@@ -964,7 +887,7 @@ public class Datastore<I, V>
 
         default KeysGetter<K, V> toKeysGetter()
         {
-            return v -> Stream.of(getKey(v));
+            return v -> Stream.of(getKey(v)).filter(Objects::nonNull);
         }
     }
 

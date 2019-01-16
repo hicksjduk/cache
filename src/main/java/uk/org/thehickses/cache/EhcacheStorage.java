@@ -2,6 +2,7 @@ package uk.org.thehickses.cache;
 
 import java.io.File;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import org.ehcache.Cache;
@@ -15,31 +16,65 @@ import org.ehcache.event.EventType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * An implementation of the {@link Storage} interface which uses a {@link Cache} as its underlying store.
+ * 
+ * @author Jeremy Hicks
+ *
+ * @param <I>
+ *            the type of the identifiers which uniquely identify objects in the store.
+ * @param <V>
+ *            the type of the objects in the store. May be a supertype, allowing objects of different but related types
+ *            to be stored.
+ */
 public class EhcacheStorage<I, V> implements Storage<I, V>
 {
     private final static Logger LOG = LoggerFactory.getLogger(EhcacheStorage.class);
 
-    private final CacheManager cacheManager;
     private final Cache<I, V> cache;
 
+    /**
+     * Initialises the object with the specified name and configuration, and no persistence layer.
+     * 
+     * @param name
+     *            the name. May not be null.
+     * @param config
+     *            the configuration. May not be null.
+     */
     public EhcacheStorage(String name, CacheConfigurationBuilder<I, V> config)
     {
-        this(name, config, null);
+        this(name, config, CacheManagerBuilder.newCacheManagerBuilder().build(true));
     }
 
+    /**
+     * Initialises the object with the specified name and configuration, and a persistence layer housed in the specified
+     * storage path.
+     * 
+     * @param name
+     *            the name. May not be null.
+     * @param config
+     *            the configuration. May not be null.
+     * @param storagePath
+     *            the storage path. May not be null.
+     */
     public EhcacheStorage(String name, CacheConfigurationBuilder<I, V> config, File storagePath)
     {
-        cacheManager = storagePath != null
-                ? CacheManagerBuilder
+        this(name, config,
+                CacheManagerBuilder
                         .newCacheManagerBuilder()
-                        .with(CacheManagerBuilder.persistence(storagePath))
-                        .build(true)
-                : CacheManagerBuilder.newCacheManagerBuilder().build(true);
+                        .with(CacheManagerBuilder.persistence(Objects.requireNonNull(storagePath)))
+                        .build(true));
+    }
+
+    private EhcacheStorage(String name, CacheConfigurationBuilder<I, V> config,
+            CacheManager cacheManager)
+    {
+        Stream.of(name, config).forEach(Objects::requireNonNull);
         CacheEventListener<I, V> evictionListener = this::processEviction;
         CacheEventListenerConfigurationBuilder listenerConfig = CacheEventListenerConfigurationBuilder
                 .newEventListenerConfiguration(evictionListener,
                         Collections.singleton(EventType.EVICTED));
-        cache = cacheManager.createCache(name, config.add(listenerConfig));
+        this.cache = cacheManager.createCache(name, config.add(listenerConfig));
     }
 
     private void processEviction(CacheEvent<? extends I, ? extends V> evt)
@@ -76,6 +111,7 @@ public class EhcacheStorage<I, V> implements Storage<I, V>
         V oldValue = cache.get(identifier);
         if (oldValue != null)
             cache.remove(identifier);
+        LOG.debug("Value removed for identifier {} is {}", identifier, oldValue);
         return oldValue;
     }
 

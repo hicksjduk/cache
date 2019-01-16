@@ -17,6 +17,7 @@ import org.junit.Test;
 
 import uk.org.thehickses.cache.Datastore.ChangeProcessor;
 import uk.org.thehickses.cache.Datastore.Index;
+import uk.org.thehickses.cache.Datastore.KeyGetter;
 
 public class DatastoreTest
 {
@@ -252,6 +253,13 @@ public class DatastoreTest
         assertThat(index2.getKeys()).containsOnly(o3.key);
         assertThat(index2.getIdentifiers(o3.key)).containsOnly(o3.id);
         assertThat(index2.getObjects(o3.key)).containsOnly(o3);
+    }
+
+    @Test
+    public void testKeyGetterReturningNull()
+    {
+        KeyGetter<String, String> keyGetter = obj -> null;
+        assertThat(keyGetter.toKeysGetter().getKeys("hello")).isEmpty();
     }
 
     private void verifyPresent(StoredObject o)

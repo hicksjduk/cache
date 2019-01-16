@@ -4,6 +4,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
+/**
+ * An implementation of the {@link Storage} interface which uses a {@link Map} as its underlying store.
+ * 
+ * @author Jeremy Hicks
+ *
+ * @param <I>
+ *            the type of the identifiers which uniquely identify objects in the store.
+ * @param <V>
+ *            the type of the objects in the store. May be a supertype, allowing objects of different but related types
+ *            to be stored.
+ */
 public class InMemoryStorage<I, V> implements Storage<I, V>
 {
     private final Map<I, V> data = new HashMap<>();
@@ -31,5 +42,4 @@ public class InMemoryStorage<I, V> implements Storage<I, V>
     {
         return data.remove(identifier);
     }
-
 }
