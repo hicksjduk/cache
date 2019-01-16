@@ -400,7 +400,8 @@ public class Datastore<I, V>
                 .map(this::adder)
                 .collect(Collectors.toMap(a -> a.identifier, Function.identity()));
         return () -> {
-            storage.identifiers().forEach(k -> transactionsByKey.putIfAbsent(k, remover(k)));
+            storage.identifiers().filter(k -> !transactionsByKey.containsKey(k)).forEach(
+                    k -> transactionsByKey.put(k, remover(k)));
             return transactionsByKey.values().stream().map(Supplier::get);
         };
     }
