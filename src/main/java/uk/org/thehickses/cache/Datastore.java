@@ -355,6 +355,14 @@ public class Datastore<I, V>
         doWithLock(lock.writeLock(), adder(objects)).forEach(Result::process);
     }
 
+    private Supplier<Stream<Result>> adder(Stream<V> newObjects)
+    {
+        Stream<Supplier<Result>> transactions = newObjects
+                .filter(Objects::nonNull)
+                .map(this::adder);
+        return () -> transactions.map(Supplier::get);
+    }
+
     /**
      * Adds the specified object(s) to the store, replacing any existing contents. Any object in the store which has the
      * same identifier as an input object is replaced by the new one; all other objects in the store are removed.
@@ -385,21 +393,14 @@ public class Datastore<I, V>
         doWithLock(lock.writeLock(), addReplacer(objects)).forEach(Result::process);
     }
 
-    private Supplier<Stream<Result>> adder(Stream<V> newObjects)
-    {
-        Stream<Supplier<Result>> transactions = newObjects
-                .filter(Objects::nonNull)
-                .map(this::adder);
-        return () -> transactions.map(Supplier::get);
-    }
-
     private Supplier<Stream<Result>> addReplacer(Stream<V> newObjects)
     {
-        Map<I, Supplier<Result>> transactionsByKey = newObjects.filter(Objects::nonNull).collect(
-                Collectors.toMap(identifierGetter::getIdentifier, this::adder));
+        Map<I, Supplier<Result>> transactionsByKey = newObjects
+                .filter(Objects::nonNull)
+                .map(this::adder)
+                .collect(Collectors.toMap(a -> a.identifier, Function.identity()));
         return () -> {
-            storage.identifiers().filter(k -> !transactionsByKey.containsKey(k)).forEach(
-                    k -> transactionsByKey.put(k, remover(k)));
+            storage.identifiers().forEach(k -> transactionsByKey.putIfAbsent(k, remover(k)));
             return transactionsByKey.values().stream().map(Supplier::get);
         };
     }
@@ -475,15 +476,15 @@ public class Datastore<I, V>
         indices.stream().forEach(i -> i.update(oldValue, newValue));
     }
 
-    private Supplier<Result> adder(V value)
-    {
-        return () -> add(value);
-    }
-
-    private Result add(V value)
+    private Adder adder(V value)
     {
         V newValue = valueNormaliser.normalise(value);
         I identifier = identifierGetter.getIdentifier(newValue);
+        return new Adder(identifier, newValue);
+    }
+
+    private Result add(I identifier, V newValue)
+    {
         V oldValue = storage.get(identifier);
         try
         {
@@ -731,6 +732,24 @@ public class Datastore<I, V>
         public InvalidAdditionException(Throwable ex)
         {
             super(ex);
+        }
+    }
+
+    private class Adder implements Supplier<Result>
+    {
+        private final I identifier;
+        private final V value;
+
+        public Adder(I identifier, V value)
+        {
+            this.identifier = identifier;
+            this.value = value;
+        }
+
+        @Override
+        public Result get()
+        {
+            return add(identifier, value);
         }
     }
 
