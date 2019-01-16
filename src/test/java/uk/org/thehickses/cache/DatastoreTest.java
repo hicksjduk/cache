@@ -237,7 +237,7 @@ public class DatastoreTest
             }
         }
 
-        Datastore<String, Super> store = new Datastore<>(InMemoryStorage::new, o -> o.id);
+        Datastore<String, Super> store = new Datastore<>(new InMemoryStorage<>(), o -> o.id);
         Index<String, String, Sub1> index1 = store.index(Sub1.class, (Sub1 o) -> o.key);
         Index<String, String, Sub2> index2 = store.index(Sub2.class, (Sub2 o) -> o.key);
 
@@ -383,7 +383,7 @@ public class DatastoreTest
                 IdentifierGetter<String, StoredObject> identifierGetter,
                 ChangeProcessor<StoredObject> changeProcessor)
         {
-            super(() -> storage, identifierGetter, changeProcessor, validator());
+            super(storage, identifierGetter, changeProcessor, validator());
             index1 = index(StoredObject::getValue1);
             index2 = index(StoredObject::getValue2);
         }

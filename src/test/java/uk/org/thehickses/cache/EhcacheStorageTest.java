@@ -20,7 +20,7 @@ public class EhcacheStorageTest
     public void test()
     {
         int objCount = 10000;
-        Datastore<Integer, TestObj> store = new Datastore<>(this::storage, o -> o.id);
+        Datastore<Integer, TestObj> store = new Datastore<>(storage(), o -> o.id);
         store.add(IntStream.range(0, objCount).mapToObj(TestObj::new).toArray(TestObj[]::new));
         IntStream.range(0, objCount).forEach(i -> {
             TestObj obj = store.get(i);

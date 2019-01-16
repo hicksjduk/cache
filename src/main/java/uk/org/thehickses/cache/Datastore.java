@@ -58,29 +58,27 @@ public class Datastore<I, V>
     private final ReadWriteLock lock = new ReentrantReadWriteLock(true);
 
     /**
-     * Initialises the datastore with the specified storage supplier and identifier getter, and default values for the
-     * other parameters.
+     * Initialises the datastore with the specified storage and identifier getter, and default values for the other
+     * parameters.
      * 
      * @param storage
-     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
-     *            null value.
+     *            a {@link Storage} implementation. May not be null.
      * @param identifierGetter
      *            an object that knows how to get the identifier of an object. May not be null, or return a null value
      *            for any object.
      */
-    public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter)
+    public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter)
     {
         this(storage, identifierGetter, ChangeProcessor.noOp(), ValueNormaliser.noOp(),
                 AdditionValidator.noOp());
     }
 
     /**
-     * Initialises the datastore with the specified storage supplier, identifier getter and change processor, and
-     * default values for the other parameters.
+     * Initialises the datastore with the specified storage, identifier getter and change processor, and default values
+     * for the other parameters.
      * 
      * @param storage
-     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
-     *            null value.
+     *            a {@link Storage} implementation. May not be null.
      * @param identifierGetter
      *            an object that knows how to get the identifier of an object. May not be null, or return a null value
      *            for any object.
@@ -88,7 +86,7 @@ public class Datastore<I, V>
      *            an object that should be called to process any change to the contents of the datastore. May not be
      *            null.
      */
-    public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
+    public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             ChangeProcessor<V> changeProcessor)
     {
         this(storage, identifierGetter, changeProcessor, ValueNormaliser.noOp(),
@@ -96,12 +94,11 @@ public class Datastore<I, V>
     }
 
     /**
-     * Initialises the datastore with the specified storage supplier, identifier getter and value normaliser, and
-     * default values for the other parameters.
+     * Initialises the datastore with the specified storage, identifier getter and value normaliser, and default values
+     * for the other parameters.
      * 
      * @param storage
-     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
-     *            null value.
+     *            a {@link Storage} implementation. May not be null.
      * @param identifierGetter
      *            an object that knows how to get the identifier of an object. May not be null, or return a null value
      *            for any object.
@@ -109,7 +106,7 @@ public class Datastore<I, V>
      *            an object that should be called to normalise an object before it is added or updated in the datastore.
      *            May not be null, or return a null value for any object.
      */
-    public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
+    public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             ValueNormaliser<V> valueNormaliser)
     {
         this(storage, identifierGetter, ChangeProcessor.noOp(), valueNormaliser,
@@ -117,12 +114,11 @@ public class Datastore<I, V>
     }
 
     /**
-     * Initialises the datastore with the specified storage supplier, identifier getter and addition validator, and
-     * default values for the other parameters.
+     * Initialises the datastore with the specified storage, identifier getter and addition validator, and default
+     * values for the other parameters.
      * 
      * @param storage
-     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
-     *            null value.
+     *            a {@link Storage} implementation. May not be null.
      * @param identifierGetter
      *            an object that knows how to get the identifier of an object. May not be null, or return a null value
      *            for any object.
@@ -130,7 +126,7 @@ public class Datastore<I, V>
      *            an object that should be called to validate the addition or update of an object in the datastore, and
      *            which may veto the operation by throwing an {@link InvalidAdditionException}. May not be null.
      */
-    public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
+    public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             AdditionValidator<I, V> additionValidator)
     {
         this(storage, identifierGetter, ChangeProcessor.noOp(), ValueNormaliser.noOp(),
@@ -138,12 +134,11 @@ public class Datastore<I, V>
     }
 
     /**
-     * Initialises the datastore with the specified storage supplier, identifier getter, change processor and addition
-     * validator, and default values for the other parameters.
+     * Initialises the datastore with the specified storage, identifier getter, change processor and addition validator,
+     * and default values for the other parameters.
      * 
      * @param storage
-     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
-     *            null value.
+     *            a {@link Storage} implementation. May not be null.
      * @param identifierGetter
      *            an object that knows how to get the identifier of an object. May not be null, or return a null value
      *            for any object.
@@ -154,19 +149,18 @@ public class Datastore<I, V>
      *            an object that should be called to validate the addition or update of an object in the datastore, and
      *            which may veto the operation by throwing an {@link InvalidAdditionException}. May not be null.
      */
-    public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
+    public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             ChangeProcessor<V> changeProcessor, AdditionValidator<I, V> additionValidator)
     {
         this(storage, identifierGetter, changeProcessor, ValueNormaliser.noOp(), additionValidator);
     }
 
     /**
-     * Initialises the datastore with the specified storage supplier, identifier getter, value normaliser and addition
-     * validator, and default values for the other parameters.
+     * Initialises the datastore with the specified storage, identifier getter, value normaliser and addition validator,
+     * and default values for the other parameters.
      * 
      * @param storage
-     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
-     *            null value.
+     *            a {@link Storage} implementation. May not be null.
      * @param identifierGetter
      *            an object that knows how to get the identifier of an object. May not be null, or return a null value
      *            for any object.
@@ -177,19 +171,18 @@ public class Datastore<I, V>
      *            an object that should be called to validate the addition or update of an object in the datastore, and
      *            which may veto the operation by throwing an {@link InvalidAdditionException}. May not be null.
      */
-    public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
+    public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             ValueNormaliser<V> valueNormaliser, AdditionValidator<I, V> additionValidator)
     {
         this(storage, identifierGetter, ChangeProcessor.noOp(), valueNormaliser, additionValidator);
     }
 
     /**
-     * Initialises the datastore with the specified storage supplier, identifier getter, change processor and value
-     * normaliser, and default values for the other parameters.
+     * Initialises the datastore with the specified storage, identifier getter, change processor and value normaliser,
+     * and default values for the other parameters.
      * 
      * @param storage
-     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
-     *            null value.
+     *            a {@link Storage} implementation. May not be null.
      * @param identifierGetter
      *            an object that knows how to get the identifier of an object. May not be null, or return a null value
      *            for any object.
@@ -199,19 +192,18 @@ public class Datastore<I, V>
      * @param valueNormaliser
      *            an object that should be called to normalise an object before it is added or updated in the datastore.
      */
-    public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
+    public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             ChangeProcessor<V> changeProcessor, ValueNormaliser<V> valueNormaliser)
     {
         this(storage, identifierGetter, changeProcessor, valueNormaliser, AdditionValidator.noOp());
     }
 
     /**
-     * Initialises the datastore with the specified storage supplier, identifier getter, change processor, value
-     * normaliser and addition validator.
+     * Initialises the datastore with the specified storage, identifier getter, change processor, value normaliser and
+     * addition validator.
      * 
      * @param storage
-     *            a supplier which when called returns a {@link Storage} implementation. May not be null, or return a
-     *            null value.
+     *            a {@link Storage} implementation. May not be null.
      * @param identifierGetter
      *            an object that knows how to get the identifier of an object. May not be null, or return a null value
      *            for any object.
@@ -225,14 +217,14 @@ public class Datastore<I, V>
      *            an object that should be called to validate the addition or update of an object in the datastore, and
      *            which may veto the operation by throwing an {@link InvalidAdditionException}. May not be null.
      */
-    public Datastore(Supplier<Storage<I, V>> storage, IdentifierGetter<I, V> identifierGetter,
+    public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             ChangeProcessor<V> changeProcessor, ValueNormaliser<V> valueNormaliser,
             AdditionValidator<I, V> additionValidator)
     {
         Stream
                 .of(storage, identifierGetter, changeProcessor, valueNormaliser, additionValidator)
                 .forEach(Objects::requireNonNull);
-        this.storage = Objects.requireNonNull(storage.get());
+        this.storage = storage;
         this.identifierGetter = obj -> Objects.requireNonNull(identifierGetter.getIdentifier(obj));
         this.changeProcessor = changeProcessor;
         this.valueNormaliser = obj -> Objects.requireNonNull(valueNormaliser.normalise(obj));
@@ -574,8 +566,8 @@ public class Datastore<I, V>
         Stream<I> identifiers();
 
         /**
-         * Puts the specified value in the store, with the specified identifier. If another value already exists with the
-         * same identifier, that value is removed.
+         * Puts the specified value in the store, with the specified identifier. If another value already exists with
+         * the same identifier, that value is removed.
          * 
          * @param identifier
          *            the identifier. May not be null.
@@ -597,7 +589,8 @@ public class Datastore<I, V>
     /**
      * An object that gets an identifier for an object.
      * 
-     * <p>This is a functional interface whose functional method is {@link #getIdentifier(Object)}.
+     * <p>
+     * This is a functional interface whose functional method is {@link #getIdentifier(Object)}.
      * 
      * @param <I>
      *            the type of the identifier.
@@ -620,7 +613,8 @@ public class Datastore<I, V>
     /**
      * An interface defining a change processor, which is called whenever the store changes.
      *
-     * <p>This is a functional interface whose functional method is {@link #processChange(Object, Object)}.
+     * <p>
+     * This is a functional interface whose functional method is {@link #processChange(Object, Object)}.
      *
      * @param <V>
      *            the type of the objects processed.
@@ -653,7 +647,8 @@ public class Datastore<I, V>
     /**
      * An interface defining a value normaliser, which is called to normalise any value before it is added to the store.
      *
-     * <p>This is a functional interface whose functional method is {@link #normalise(Object)}.
+     * <p>
+     * This is a functional interface whose functional method is {@link #normalise(Object)}.
      *
      * @param <V>
      *            the type of the objects processed.
@@ -680,7 +675,8 @@ public class Datastore<I, V>
      * An interface defining an addition validator, which is called to validate the addition of an object before it is
      * added.
      * 
-     * <p>This is a functional interface whose functional method is {@link #validate(Object, Object, Object)}.
+     * <p>
+     * This is a functional interface whose functional method is {@link #validate(Object, Object, Object)}.
      *
      * @param <I>
      *            the type of the identifier which identifies the objects processed.
@@ -944,7 +940,8 @@ public class Datastore<I, V>
     /**
      * An interface defining an object that can get a single index key from an object.
      *
-     * <p>This is a functional interface whose functional method is {@link #getKey(Object)}.
+     * <p>
+     * This is a functional interface whose functional method is {@link #getKey(Object)}.
      *
      * @param <K>
      *            the type of the key.
@@ -973,7 +970,8 @@ public class Datastore<I, V>
     /**
      * An interface defining an object that can get multiple index keys from a single object.
      *
-     * <p>This is a functional interface whose functional method is {@link #getKeys(Object)}.
+     * <p>
+     * This is a functional interface whose functional method is {@link #getKeys(Object)}.
      *
      * @param <K>
      *            the type of the keys.
