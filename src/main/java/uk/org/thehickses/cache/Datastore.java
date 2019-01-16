@@ -128,7 +128,7 @@ public class Datastore<I, V>
     {
         Objects.requireNonNull(keyGetter);
         @SuppressWarnings("unchecked")
-        Index<K, I, V> index = new Index<>(obj -> (V) obj, identifierGetter,
+        Index<K, I, V> index = new Index<>(storage, obj -> (V) obj, identifierGetter,
                 keyGetter.toKeysGetter(), lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
@@ -146,7 +146,8 @@ public class Datastore<I, V>
     {
         Objects.requireNonNull(keysGetter);
         @SuppressWarnings("unchecked")
-        Index<K, I, V> index = new Index<>(obj -> (V) obj, identifierGetter, keysGetter, lock);
+        Index<K, I, V> index = new Index<>(storage, obj -> (V) obj, identifierGetter, keysGetter,
+                lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
     }
@@ -166,7 +167,7 @@ public class Datastore<I, V>
             KeyGetter<K, ? super U> keyGetter)
     {
         Stream.of(objectType, keyGetter).forEach(Objects::requireNonNull);
-        Index<K, I, U> index = new Index<>(Index.caster(objectType), identifierGetter,
+        Index<K, I, U> index = new Index<>(storage, Index.caster(objectType), identifierGetter,
                 keyGetter.toKeysGetter(), lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
@@ -187,8 +188,8 @@ public class Datastore<I, V>
             KeysGetter<K, ? super U> keysGetter)
     {
         Stream.of(objectType, keysGetter).forEach(Objects::requireNonNull);
-        Index<K, I, U> index = new Index<>(Index.caster(objectType), identifierGetter, keysGetter,
-                lock);
+        Index<K, I, U> index = new Index<>(storage, Index.caster(objectType), identifierGetter,
+                keysGetter, lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
     }
@@ -778,12 +779,11 @@ public class Datastore<I, V>
      */
     public static class Index<K, I, V>
     {
+        private final Storage<I, ? super V> storage;
+
         private final Function<Object, V> caster;
 
-        // NB because different objects can have the same index key, the objects for each key are stored in a
-        // collection; and to support efficient removal that collection is a map where the key is the object's
-        // identifier.
-        protected final Map<K, Map<I, V>> objectsByKey = new HashMap<>();
+        private final Map<K, Set<I>> identifiersByKey = new HashMap<>();
 
         private final IdentifierGetter<I, V> identifierGetter;
 
@@ -801,9 +801,11 @@ public class Datastore<I, V>
          * @param keysGetter
          *            the key getter. May not be null.
          */
-        private Index(Function<Object, V> caster, IdentifierGetter<I, ? super V> identifierGetter,
+        private Index(Storage<I, ? super V> storage, Function<Object, V> caster,
+                IdentifierGetter<I, ? super V> identifierGetter,
                 KeysGetter<K, ? super V> keysGetter, ReadWriteLock lock)
         {
+            this.storage = storage;
             this.caster = caster;
             this.identifierGetter = obj -> Objects
                     .requireNonNull(identifierGetter.getIdentifier(obj));
@@ -811,6 +813,15 @@ public class Datastore<I, V>
                     .requireNonNull(keysGetter.getKeys(obj))
                     .filter(Objects::nonNull);
             this.lock = lock;
+        }
+        
+        public Stream<K> getKeys()
+        {
+            Stream.Builder<K> builder = Stream.builder();
+            doWithLock(lock.readLock(), () -> {
+                identifiersByKey.keySet().stream().forEach(builder);
+            });
+            return builder.build();
         }
 
         /**
@@ -822,7 +833,14 @@ public class Datastore<I, V>
          */
         public Stream<I> getIdentifiers(K key)
         {
-            return get(key, Map::keySet);
+            Objects.requireNonNull(key);
+            Stream.Builder<I> builder = Stream.builder();
+            doWithLock(lock.readLock(), () -> {
+                Set<I> idsForKey = identifiersByKey.get(key);
+                if (idsForKey != null)
+                    idsForKey.stream().forEach(builder);
+            });
+            return builder.build();
         }
 
         /**
@@ -834,19 +852,7 @@ public class Datastore<I, V>
          */
         public Stream<V> getObjects(K key)
         {
-            return get(key, Map::values);
-        }
-
-        private <T> Stream<T> get(K key, Function<Map<I, V>, Iterable<T>> getter)
-        {
-            Objects.requireNonNull(key);
-            Stream.Builder<T> builder = Stream.builder();
-            doWithLock(lock.readLock(), () -> {
-                Map<I, V> objsForKey = objectsByKey.get(key);
-                if (objsForKey != null)
-                    getter.apply(objsForKey).forEach(builder);
-            });
-            return builder.build();
+            return getIdentifiers(key).map(storage::get).map(caster::apply);
         }
 
         /**
@@ -874,10 +880,10 @@ public class Datastore<I, V>
             Stream<K> keys = keysGetter.getKeys(object);
             doWithLock(lock.writeLock(), () -> {
                 keys.forEach(key -> {
-                    Map<I, V> objects = objectsByKey.get(key);
-                    if (objects == null)
-                        objectsByKey.put(key, objects = new HashMap<>());
-                    objects.put(identifier, object);
+                    Set<I> ids = identifiersByKey.get(key);
+                    if (ids == null)
+                        identifiersByKey.put(key, ids = new HashSet<>());
+                    ids.add(identifier);
                 });
             });
         }
@@ -897,9 +903,9 @@ public class Datastore<I, V>
             Stream<K> keys = keysGetter.getKeys(castObject);
             doWithLock(lock.writeLock(), () -> {
                 keys.forEach(key -> {
-                    Map<I, V> objects = objectsByKey.get(key);
-                    if (objects != null && objects.remove(identifier) != null && objects.isEmpty())
-                        objectsByKey.remove(key);
+                    Set<I> objects = identifiersByKey.get(key);
+                    if (objects != null && objects.remove(identifier) && objects.isEmpty())
+                        identifiersByKey.remove(key);
                 });
             });
         }

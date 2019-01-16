@@ -236,22 +236,22 @@ public class DatastoreTest
                 this.key = key;
             }
         }
-        
+
         Datastore<String, Super> store = new Datastore<>(InMemoryStorage::new, o -> o.id);
         Index<String, String, Sub1> index1 = store.index(Sub1.class, (Sub1 o) -> o.key);
         Index<String, String, Sub2> index2 = store.index(Sub2.class, (Sub2 o) -> o.key);
-        
+
         Super o1 = new Super("a");
         Sub1 o2 = new Sub1("b", "bb");
         Sub2 o3 = new Sub2("c", "cc");
         store.add(o1, o2, o3);
         Stream.of(o1, o2, o3).forEach(o -> assertThat(store.get(o.id)).isSameAs(o));
-        assertThat(index1.objectsByKey).containsOnlyKeys(o2.key);
-        assertThat(index1.objectsByKey.get(o2.key)).containsOnlyKeys(o2.id);
-        assertThat(index1.objectsByKey.get(o2.key).get(o2.id)).isSameAs(o2);
-        assertThat(index2.objectsByKey).containsOnlyKeys(o3.key);
-        assertThat(index2.objectsByKey.get(o3.key)).containsOnlyKeys(o3.id);
-        assertThat(index2.objectsByKey.get(o3.key).get(o3.id)).isSameAs(o3);
+        assertThat(index1.getKeys()).containsOnly(o2.key);
+        assertThat(index1.getIdentifiers(o2.key)).containsOnly(o2.id);
+        assertThat(index1.getObjects(o2.key)).containsOnly(o2);
+        assertThat(index2.getKeys()).containsOnly(o3.key);
+        assertThat(index2.getIdentifiers(o3.key)).containsOnly(o3.id);
+        assertThat(index2.getObjects(o3.key)).containsOnly(o3);
     }
 
     private void verifyPresent(StoredObject o)
