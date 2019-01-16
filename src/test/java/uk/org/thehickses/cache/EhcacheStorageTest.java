@@ -1,6 +1,7 @@
 package uk.org.thehickses.cache;
 
 import static org.assertj.core.api.Assertions.*;
+
 import java.io.File;
 import java.io.Serializable;
 import java.util.stream.IntStream;
@@ -9,6 +10,8 @@ import org.ehcache.config.builders.CacheConfigurationBuilder;
 import org.ehcache.config.builders.ResourcePoolsBuilder;
 import org.ehcache.config.units.MemoryUnit;
 import org.junit.Test;
+
+import uk.org.thehickses.cache.Datastore.Storage;
 
 public class EhcacheStorageTest
 {

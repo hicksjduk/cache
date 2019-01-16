@@ -16,8 +16,10 @@ import org.junit.Before;
 import org.junit.Test;
 
 import uk.org.thehickses.cache.Datastore.ChangeProcessor;
+import uk.org.thehickses.cache.Datastore.IdentifierGetter;
 import uk.org.thehickses.cache.Datastore.Index;
 import uk.org.thehickses.cache.Datastore.KeyGetter;
+import uk.org.thehickses.cache.Datastore.Storage;
 
 public class DatastoreTest
 {

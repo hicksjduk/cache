@@ -16,6 +16,8 @@ import org.ehcache.event.EventType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import uk.org.thehickses.cache.Datastore.Storage;
+
 /**
  * An implementation of the {@link Storage} interface which uses a {@link Cache} as its underlying store.
  * 

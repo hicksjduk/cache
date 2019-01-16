@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import uk.org.thehickses.cache.Datastore.Storage;
+
 /**
  * An implementation of the {@link Storage} interface which uses a {@link Map} as its underlying store.
  * 
