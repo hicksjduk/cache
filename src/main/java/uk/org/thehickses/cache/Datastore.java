@@ -322,7 +322,43 @@ public class Datastore<I, V>
     public V get(I identifier)
     {
         Objects.requireNonNull(identifier);
-        return doWithLock(lock.readLock(), () -> storage.get(identifier));
+        return get(Stream.of(identifier)).findFirst().orElse(null);
+    }
+    
+    /**
+     * Gets the stored object(s), if any, which have the specified identifier(s).
+     * 
+     * @param identifiers
+     *            the identifiers. May be empty, but may not be null.
+     * @return the object(s). May be empty, but may not be null.
+     */
+    public Stream<V> get(Collection<I> identifiers)
+    {
+        Objects.requireNonNull(identifiers);
+        return get(identifiers.stream());
+    }
+    
+    /**
+     * Gets the stored object(s), if any, which have the specified identifier(s).
+     * 
+     * @param id1
+     *            the first identifier.
+     * @param id2
+     *            the second identifier.
+     * @param otherIds
+     *            any other identifiers. May be empty, but may not be null.
+     * @return the object(s). May be empty, but may not be null.
+     */
+    public Stream<V> get(I id1, I id2, I... otherIds)
+    {
+        Objects.requireNonNull(otherIds);
+        return get(Stream.concat(Stream.of(id1, id2), Stream.of(otherIds)));
+    }
+
+    private Stream<V> get(Stream<I> identifiers)
+    {
+        Stream<I> ids = identifiers.filter(Objects::nonNull).distinct();
+        return doWithLock(lock.readLock(), () -> ids.map(storage::get)).filter(Objects::nonNull);
     }
 
     /**
