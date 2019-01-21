@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -258,7 +259,7 @@ public class DatastoreTest
     public void testKeyGetterReturningNull()
     {
         KeyGetter<String, String> keyGetter = obj -> null;
-        assertThat(keyGetter.toKeysGetter().getKeys("hello")).isEmpty();
+        assertThat(keyGetter.toKeysGetter().getKeys("hello")).containsExactly((String) null);
     }
 
     private void verifyPresent(StoredObject o)

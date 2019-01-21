@@ -410,9 +410,11 @@ public class Datastore<I, V>
 
     private Supplier<Stream<Result>> adder(Stream<V> newObjects)
     {
-        Stream<Supplier<Result>> transactions = newObjects
+        Stream<? extends Supplier<Result>> transactions = newObjects
                 .filter(Objects::nonNull)
-                .map(this::adder);
+                .map(this::adder)
+                .collect(Collectors.toList())
+                .stream();
         return () -> transactions.map(Supplier::get);
     }
 
@@ -945,8 +947,12 @@ public class Datastore<I, V>
          */
         public Stream<V> getObjects(K key)
         {
-            return doWithLock(lock.readLock(), () -> getIdentifiers(key).map(storage::get))
-                    .map(caster::apply);
+            Stream.Builder<V> builder = Stream.builder();
+            doWithLock(lock.readLock(), () -> getIdentifiers(key)
+                    .map(storage::get)
+                    .map(caster::apply)
+                    .forEach(builder));
+            return builder.build();
         }
 
         private void add(Object object)
@@ -965,7 +971,7 @@ public class Datastore<I, V>
 
         private void addObject(I identifier, V object)
         {
-            Stream<K> keys = keysGetter.getKeys(object);
+            Stream<K> keys = getKeys(object);
             doWithLock(lock.writeLock(), () -> {
                 keys.forEach(key -> {
                     Set<I> ids = identifiersByKey.get(key);
@@ -976,13 +982,22 @@ public class Datastore<I, V>
             });
         }
 
+        private Stream<K> getKeys(V object)
+        {
+            return keysGetter
+                    .getKeys(object)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet())
+                    .stream();
+        }
+
         private void remove(Object object)
         {
             V castObject = caster.apply(object);
             if (castObject == null)
                 return;
             I identifier = identifierGetter.getIdentifier(castObject);
-            Stream<K> keys = keysGetter.getKeys(castObject);
+            Stream<K> keys = getKeys(castObject);
             doWithLock(lock.writeLock(), () -> {
                 keys.forEach(key -> {
                     Set<I> objects = identifiersByKey.get(key);
@@ -1036,7 +1051,7 @@ public class Datastore<I, V>
 
         default KeysGetter<K, V> toKeysGetter()
         {
-            return v -> Stream.of(getKey(v)).filter(Objects::nonNull);
+            return v -> Stream.of(getKey(v));
         }
     }
 
