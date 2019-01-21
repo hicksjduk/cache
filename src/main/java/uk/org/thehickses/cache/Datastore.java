@@ -3,6 +3,7 @@ package uk.org.thehickses.cache;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -313,7 +314,7 @@ public class Datastore<I, V>
     }
 
     /**
-     * Gets the stored object which has the specified identifier.
+     * Gets the stored object, if any, which has the specified identifier.
      * 
      * @param identifier
      *            the identifier. May not be null.
@@ -324,7 +325,7 @@ public class Datastore<I, V>
         Objects.requireNonNull(identifier);
         return get(Stream.of(identifier)).findFirst().orElse(null);
     }
-    
+
     /**
      * Gets the stored object(s), if any, which have the specified identifier(s).
      * 
@@ -337,7 +338,20 @@ public class Datastore<I, V>
         Objects.requireNonNull(identifiers);
         return get(identifiers.stream());
     }
-    
+
+    /**
+     * Gets the stored object(s), if any, which have the specified identifier(s).
+     * 
+     * @param identifiers
+     *            the identifiers. May be empty, but may not be null.
+     * @return the object(s). May be empty, but may not be null.
+     */
+    public Stream<V> get(I[] identifiers)
+    {
+        Objects.requireNonNull(identifiers);
+        return get(Stream.of(identifiers));
+    }
+
     /**
      * Gets the stored object(s), if any, which have the specified identifier(s).
      * 
@@ -349,7 +363,8 @@ public class Datastore<I, V>
      *            any other identifiers. May be empty, but may not be null.
      * @return the object(s). May be empty, but may not be null.
      */
-    public Stream<V> get(I id1, I id2, I... otherIds)
+    @SafeVarargs
+    public final Stream<V> get(I id1, I id2, I... otherIds)
     {
         Objects.requireNonNull(otherIds);
         return get(Stream.concat(Stream.of(id1, id2), Stream.of(otherIds)));
@@ -357,8 +372,10 @@ public class Datastore<I, V>
 
     private Stream<V> get(Stream<I> identifiers)
     {
-        Stream<I> ids = identifiers.filter(Objects::nonNull).distinct();
-        return doWithLock(lock.readLock(), () -> ids.map(storage::get)).filter(Objects::nonNull);
+        Stream<I> ids = identifiers.filter(Objects::nonNull).collect(Collectors.toSet()).stream();
+        List<V> results = doWithLock(lock.readLock(),
+                () -> ids.map(storage::get).collect(Collectors.toList()));
+        return results.stream().filter(Objects::nonNull);
     }
 
     /**
