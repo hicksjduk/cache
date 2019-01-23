@@ -449,14 +449,14 @@ public class Datastore<I, V>
 
     private Supplier<Stream<Result>> addReplacer(Stream<V> newObjects)
     {
-        Map<I, Supplier<Result>> transactionsByKey = newObjects
+        Map<I, Supplier<Result>> transactionsByIdentifier = newObjects
                 .filter(Objects::nonNull)
                 .map(this::adder)
                 .collect(Collectors.toMap(a -> a.identifier, Function.identity()));
         return () -> {
-            storage.identifiers().filter(k -> !transactionsByKey.containsKey(k)).forEach(
-                    k -> transactionsByKey.put(k, remover(k)));
-            return transactionsByKey.values().stream().map(Supplier::get);
+            storage.identifiers().filter(id -> !transactionsByIdentifier.containsKey(id)).forEach(
+                    id -> transactionsByIdentifier.put(id, remover(id)));
+            return transactionsByIdentifier.values().stream().map(Supplier::get);
         };
     }
 
