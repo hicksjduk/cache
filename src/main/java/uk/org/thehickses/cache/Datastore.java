@@ -3,7 +3,6 @@ package uk.org.thehickses.cache;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -12,6 +11,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collector;
+import java.util.stream.Collector.Characteristics;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -372,10 +373,9 @@ public class Datastore<I, V>
 
     private Stream<V> get(Stream<I> identifiers)
     {
-        Stream<I> ids = identifiers.filter(Objects::nonNull).collect(Collectors.toSet()).stream();
-        List<V> results = doWithLock(lock.readLock(),
-                () -> ids.map(storage::get).collect(Collectors.toList()));
-        return results.stream().filter(Objects::nonNull);
+        Stream<I> ids = identifiers.filter(Objects::nonNull).distinct().collect(copyCollector());
+        return doWithLock(lock.readLock(), () -> ids.map(storage::get).collect(copyCollector()))
+                .filter(Objects::nonNull);
     }
 
     /**
@@ -413,8 +413,7 @@ public class Datastore<I, V>
         Stream<? extends Supplier<Result>> transactions = newObjects
                 .filter(Objects::nonNull)
                 .map(this::adder)
-                .collect(Collectors.toList())
-                .stream();
+                .collect(copyCollector());
         return () -> transactions.map(Supplier::get);
     }
 
@@ -570,7 +569,11 @@ public class Datastore<I, V>
 
     private Supplier<Stream<Result>> remover(Stream<I> identifiers)
     {
-        Stream<Supplier<Result>> removers = identifiers.filter(Objects::nonNull).map(this::remover);
+        Stream<Supplier<Result>> removers = identifiers
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(this::remover)
+                .collect(copyCollector());
         return () -> removers.map(Supplier::get);
     }
 
@@ -593,6 +596,14 @@ public class Datastore<I, V>
             processor.run();
             return null;
         });
+    }
+
+    private static <T> Collector<T, Stream.Builder<T>, Stream<T>> copyCollector()
+    {
+        return Collector.of(Stream::builder, Stream.Builder::add, (b1, b2) -> {
+            b2.build().forEach(b1);
+            return b1;
+        }, Stream.Builder::build, Characteristics.UNORDERED);
     }
 
     /**
@@ -1080,5 +1091,4 @@ public class Datastore<I, V>
          */
         Stream<K> getKeys(V object);
     }
-
 }
