@@ -998,8 +998,7 @@ public class Datastore<I, V>
             return keysGetter
                     .getKeys(object)
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet())
-                    .stream();
+                    .distinct();
         }
 
         private void remove(Object object)
