@@ -12,7 +12,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
-import java.util.stream.Collector.Characteristics;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -603,7 +602,7 @@ public class Datastore<I, V>
         return Collector.of(Stream::builder, Stream.Builder::add, (b1, b2) -> {
             b2.build().forEach(b1);
             return b1;
-        }, Stream.Builder::build, Characteristics.UNORDERED);
+        }, Stream.Builder::build);
     }
 
     /**
