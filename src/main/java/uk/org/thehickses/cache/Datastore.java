@@ -994,10 +994,7 @@ public class Datastore<I, V>
 
         private Stream<K> getKeys(V object)
         {
-            return keysGetter
-                    .getKeys(object)
-                    .filter(Objects::nonNull)
-                    .distinct();
+            return keysGetter.getKeys(object).filter(Objects::nonNull).distinct();
         }
 
         private void remove(Object object)
