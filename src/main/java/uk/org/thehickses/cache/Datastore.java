@@ -18,6 +18,7 @@ import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 /**
  * A class defining the functionality and interfaces of a datastore. The store is parameterised with the type of the
  * objects stored in it, and the type of their identifiers.
@@ -404,7 +405,9 @@ public class Datastore<I, V>
 
     private void add(Stream<V> objects)
     {
-        doWithLock(lock.writeLock(), adder(objects)).forEach(Result::process);
+        doWithLock(lock.writeLock(), adder(objects))
+                .collect(copyCollector())
+                .forEach(Result::process);
     }
 
     private Supplier<Stream<Result>> adder(Stream<V> newObjects)
@@ -901,11 +904,8 @@ public class Datastore<I, V>
          */
         public Stream<K> getKeys()
         {
-            Stream.Builder<K> builder = Stream.builder();
-            doWithLock(lock.readLock(), () -> {
-                identifiersByKey.keySet().stream().forEach(builder);
-            });
-            return builder.build();
+            return doWithLock(lock.readLock(),
+                    () -> identifiersByKey.keySet().stream().collect(copyCollector()));
         }
 
         /**
@@ -918,13 +918,11 @@ public class Datastore<I, V>
         public Stream<I> getIdentifiers(K key)
         {
             Objects.requireNonNull(key);
-            Stream.Builder<I> builder = Stream.builder();
-            doWithLock(lock.readLock(), () -> {
+            return doWithLock(lock.readLock(), () -> {
                 Set<I> idsForKey = identifiersByKey.get(key);
-                if (idsForKey != null)
-                    idsForKey.stream().forEach(builder);
+                return idsForKey == null ? Stream.empty()
+                        : idsForKey.stream().collect(copyCollector());
             });
-            return builder.build();
         }
 
         /**
@@ -936,12 +934,10 @@ public class Datastore<I, V>
          */
         public Stream<V> getObjects(K key)
         {
-            Stream.Builder<V> builder = Stream.builder();
-            doWithLock(lock.readLock(), () -> getIdentifiers(key)
+            return doWithLock(lock.readLock(), () -> getIdentifiers(key)
                     .map(storage::get)
                     .map(caster::apply)
-                    .forEach(builder));
-            return builder.build();
+                    .collect(copyCollector()));
         }
 
         private void add(Object object)
@@ -960,7 +956,7 @@ public class Datastore<I, V>
 
         private void addObject(I identifier, V object)
         {
-            Stream<K> keys = getKeys(object);
+            Stream<K> keys = getKeys(object).collect(copyCollector());
             doWithLock(lock.writeLock(), () -> {
                 keys.forEach(key -> {
                     Set<I> ids = identifiersByKey.get(key);
@@ -982,7 +978,7 @@ public class Datastore<I, V>
             if (castObject == null)
                 return;
             I identifier = identifierGetter.getIdentifier(castObject);
-            Stream<K> keys = getKeys(castObject);
+            Stream<K> keys = getKeys(castObject).collect(copyCollector());
             doWithLock(lock.writeLock(), () -> {
                 keys.forEach(key -> {
                     Set<I> objects = identifiersByKey.get(key);
