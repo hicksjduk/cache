@@ -1,12 +1,13 @@
 package uk.org.thehickses.cache;
 
+import static uk.org.thehickses.locking.Locking.*;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
@@ -17,7 +18,6 @@ import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 /**
  * A class defining the functionality and interfaces of a datastore. The store is parameterised with the type of the
  * objects stored in it, and the type of their identifiers.
@@ -574,27 +574,6 @@ public class Datastore<I, V>
                 .map(this::remover)
                 .collect(copyCollector());
         return () -> removers.map(Supplier::get);
-    }
-
-    private static <T> T doWithLock(Lock lock, Supplier<T> processor)
-    {
-        lock.lock();
-        try
-        {
-            return processor.get();
-        }
-        finally
-        {
-            lock.unlock();
-        }
-    }
-
-    private static void doWithLock(Lock lock, Runnable processor)
-    {
-        doWithLock(lock, () -> {
-            processor.run();
-            return null;
-        });
     }
 
     private static <T> Collector<T, Stream.Builder<T>, Stream<T>> copyCollector()
