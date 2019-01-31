@@ -405,9 +405,7 @@ public class Datastore<I, V>
 
     private void add(Stream<V> objects)
     {
-        doWithLock(lock.writeLock(), adder(objects))
-                .collect(copyCollector())
-                .forEach(Result::process);
+        doWithLock(lock.writeLock(), adder(objects)).forEach(Result::process);
     }
 
     private Supplier<Stream<Result>> adder(Stream<V> newObjects)
@@ -416,7 +414,7 @@ public class Datastore<I, V>
                 .filter(Objects::nonNull)
                 .map(this::adder)
                 .collect(copyCollector());
-        return () -> transactions.map(Supplier::get);
+        return () -> transactions.map(Supplier::get).collect(copyCollector());
     }
 
     /**
@@ -458,7 +456,11 @@ public class Datastore<I, V>
         return () -> {
             storage.identifiers().filter(id -> !transactionsByIdentifier.containsKey(id)).forEach(
                     id -> transactionsByIdentifier.put(id, remover(id)));
-            return transactionsByIdentifier.values().stream().map(Supplier::get);
+            return transactionsByIdentifier
+                    .values()
+                    .stream()
+                    .map(Supplier::get)
+                    .collect(copyCollector());
         };
     }
 
@@ -576,7 +578,7 @@ public class Datastore<I, V>
                 .distinct()
                 .map(this::remover)
                 .collect(copyCollector());
-        return () -> removers.map(Supplier::get);
+        return () -> removers.map(Supplier::get).collect(copyCollector());
     }
 
     private static <T> Collector<T, Stream.Builder<T>, Stream<T>> copyCollector()
@@ -934,10 +936,9 @@ public class Datastore<I, V>
          */
         public Stream<V> getObjects(K key)
         {
-            return doWithLock(lock.readLock(), () -> getIdentifiers(key)
-                    .map(storage::get)
-                    .map(caster::apply)
-                    .collect(copyCollector()));
+            return doWithLock(lock.readLock(),
+                    () -> getIdentifiers(key).map(storage::get).collect(copyCollector()))
+                            .map(caster::apply);
         }
 
         private void add(Object object)
