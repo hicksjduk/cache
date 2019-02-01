@@ -373,9 +373,11 @@ public class Datastore<I, V>
 
     private Stream<V> get(Stream<I> identifiers)
     {
-        Stream<I> ids = identifiers.filter(Objects::nonNull).distinct().collect(copyCollector());
-        return doWithLock(lock.readLock(), () -> ids.map(storage::get).collect(copyCollector()))
-                .filter(Objects::nonNull);
+        return doWithLock(lock.readLock(), () -> identifiers
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(storage::get)
+                .collect(copyCollector())).filter(Objects::nonNull);
     }
 
     /**
@@ -405,7 +407,7 @@ public class Datastore<I, V>
 
     private void add(Stream<V> objects)
     {
-        doWithLock(lock.writeLock(), adder(objects)).forEach(Result::process);
+        doWithLock(lock.writeLock(), () -> adder(objects).get().forEach(Result::process));
     }
 
     private Supplier<Stream<Result>> adder(Stream<V> newObjects)
@@ -444,7 +446,7 @@ public class Datastore<I, V>
 
     private void addReplace(Stream<V> objects)
     {
-        doWithLock(lock.writeLock(), addReplacer(objects)).forEach(Result::process);
+        doWithLock(lock.writeLock(), () -> addReplacer(objects).get().forEach(Result::process));
     }
 
     private Supplier<Stream<Result>> addReplacer(Stream<V> newObjects)
@@ -516,7 +518,7 @@ public class Datastore<I, V>
 
     private void remove(Stream<I> identifiers)
     {
-        doWithLock(lock.writeLock(), remover(identifiers)).forEach(Result::process);
+        doWithLock(lock.writeLock(), () -> remover(identifiers).get().forEach(Result::process));
     }
 
     private void processResult(RemoveResult result)
@@ -957,9 +959,8 @@ public class Datastore<I, V>
 
         private void addObject(I identifier, V object)
         {
-            Stream<K> keys = getKeys(object).collect(copyCollector());
             doWithLock(lock.writeLock(), () -> {
-                keys.forEach(key -> {
+                getKeys(object).forEach(key -> {
                     Set<I> ids = identifiersByKey.get(key);
                     if (ids == null)
                         identifiersByKey.put(key, ids = new HashSet<>());
@@ -979,9 +980,8 @@ public class Datastore<I, V>
             if (castObject == null)
                 return;
             I identifier = identifierGetter.getIdentifier(castObject);
-            Stream<K> keys = getKeys(castObject).collect(copyCollector());
             doWithLock(lock.writeLock(), () -> {
-                keys.forEach(key -> {
+                getKeys(castObject).forEach(key -> {
                     Set<I> objects = identifiersByKey.get(key);
                     if (objects != null && objects.remove(identifier) && objects.isEmpty())
                         identifiersByKey.remove(key);
