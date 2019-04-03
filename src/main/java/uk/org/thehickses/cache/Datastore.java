@@ -377,7 +377,8 @@ public class Datastore<I, V>
                 .filter(Objects::nonNull)
                 .distinct()
                 .map(storage::get)
-                .collect(copyCollector())).filter(Objects::nonNull);
+                .filter(Objects::nonNull)
+                .collect(copyCollector()));
     }
 
     /**
@@ -414,8 +415,7 @@ public class Datastore<I, V>
     {
         Stream<? extends Supplier<Result>> transactions = newObjects
                 .filter(Objects::nonNull)
-                .map(this::adder)
-                .collect(copyCollector());
+                .map(this::adder);
         return () -> transactions.map(Supplier::get).collect(copyCollector());
     }
 
@@ -578,8 +578,7 @@ public class Datastore<I, V>
         Stream<Supplier<Result>> removers = identifiers
                 .filter(Objects::nonNull)
                 .distinct()
-                .map(this::remover)
-                .collect(copyCollector());
+                .map(this::remover);
         return () -> removers.map(Supplier::get).collect(copyCollector());
     }
 
