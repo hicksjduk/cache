@@ -12,7 +12,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -302,7 +301,7 @@ public class Datastore<I, V>
     private <K, U extends V> Index<K, I, U> index(Function<Object, U> caster,
             KeysGetter<K, ? super U> keysGetter)
     {
-        Index<K, I, U> index = new Index<>(storage, caster, identifierGetter, keysGetter, lock);
+        Index<K, I, U> index = new Index<>(storage, caster, keysGetter, lock);
         doWithLock(lock.writeLock(), () -> addIndex(index));
         return index;
 
@@ -373,12 +372,9 @@ public class Datastore<I, V>
 
     private Stream<V> get(Stream<I> identifiers)
     {
-        return doWithLock(lock.readLock(), () -> identifiers
-                .filter(Objects::nonNull)
-                .distinct()
-                .map(storage::get)
-                .filter(Objects::nonNull)
-                .collect(copyCollector()));
+        Stream<I> ids = copy(identifiers.filter(Objects::nonNull).distinct());
+        return doWithLock(lock.readLock(),
+                () -> copy(ids.map(storage::get).filter(Objects::nonNull)));
     }
 
     /**
@@ -408,15 +404,13 @@ public class Datastore<I, V>
 
     private void add(Stream<V> objects)
     {
-        doWithLock(lock.writeLock(), () -> adder(objects).get().forEach(Result::process));
+        doWithLock(lock.writeLock(), adder(objects)).forEach(Result::process);
     }
 
     private Supplier<Stream<Result>> adder(Stream<V> newObjects)
     {
-        Stream<? extends Supplier<Result>> transactions = newObjects
-                .filter(Objects::nonNull)
-                .map(this::adder);
-        return () -> transactions.map(Supplier::get).collect(copyCollector());
+        Stream<V> objs = copy(newObjects.filter(Objects::nonNull));
+        return () -> copy(objs.map(this::adder).map(Supplier::get));
     }
 
     /**
@@ -446,7 +440,7 @@ public class Datastore<I, V>
 
     private void addReplace(Stream<V> objects)
     {
-        doWithLock(lock.writeLock(), () -> addReplacer(objects).get().forEach(Result::process));
+        doWithLock(lock.writeLock(), addReplacer(objects)).forEach(Result::process);
     }
 
     private Supplier<Stream<Result>> addReplacer(Stream<V> newObjects)
@@ -455,30 +449,31 @@ public class Datastore<I, V>
                 .filter(Objects::nonNull)
                 .map(this::adder)
                 .collect(Collectors.toMap(a -> a.identifier, Function.identity()));
-        return () -> {
-            storage.identifiers().filter(id -> !transactionsByIdentifier.containsKey(id)).forEach(
-                    id -> transactionsByIdentifier.put(id, remover(id)));
-            return transactionsByIdentifier
-                    .values()
-                    .stream()
-                    .map(Supplier::get)
-                    .collect(copyCollector());
-        };
+        return () -> copy(Stream
+                .of(transactionsByIdentifier)
+                .peek(txns -> storage
+                        .identifiers()
+                        .forEach(id -> txns.putIfAbsent(id, remover(id))))
+                .map(Map::values)
+                .flatMap(Collection::stream)
+                .map(Supplier::get));
     }
 
     private void processResult(AddResult result)
     {
         if (result.exception != null)
         {
-            LOG.error("Invalid attempt to add object {} (with identifier {})", result.newValue,
-                    result.identifier, result.exception);
+            LOG
+                    .error("Invalid attempt to add object {} (with identifier {})", result.newValue,
+                            result.identifier, result.exception);
             return;
         }
         if (result.oldValue == null)
             LOG.debug("New object {} added with identifier {}", result.newValue, result.identifier);
         else
-            LOG.debug("Existing object {} replaced by new object {} with identifier {}",
-                    result.oldValue, result.newValue, result.identifier);
+            LOG
+                    .debug("Existing object {} replaced by new object {} with identifier {}",
+                            result.oldValue, result.newValue, result.identifier);
         if (!Objects.equals(result.oldValue, result.newValue))
             changeProcessor.processChange(result.oldValue, result.newValue);
     }
@@ -532,9 +527,9 @@ public class Datastore<I, V>
         changeProcessor.processChange(result.oldValue, null);
     }
 
-    private void updateIndices(V oldValue, V newValue)
+    private void updateIndices(I identifier, V oldValue, V newValue)
     {
-        indices.stream().forEach(i -> i.update(oldValue, newValue));
+        indices.stream().forEach(i -> i.update(identifier, oldValue, newValue));
     }
 
     private Adder adder(V value)
@@ -556,7 +551,7 @@ public class Datastore<I, V>
             return new AddResult(identifier, oldValue, newValue, ex);
         }
         storage.put(identifier, newValue);
-        updateIndices(oldValue, newValue);
+        updateIndices(identifier, oldValue, newValue);
         return new AddResult(identifier, oldValue, newValue);
     }
 
@@ -569,25 +564,21 @@ public class Datastore<I, V>
     {
         V oldValue = storage.remove(identifier);
         if (oldValue != null)
-            updateIndices(oldValue, null);
+            updateIndices(identifier, oldValue, null);
         return new RemoveResult(identifier, oldValue);
     }
 
     private Supplier<Stream<Result>> remover(Stream<I> identifiers)
     {
-        Stream<Supplier<Result>> removers = identifiers
-                .filter(Objects::nonNull)
-                .distinct()
-                .map(this::remover);
-        return () -> removers.map(Supplier::get).collect(copyCollector());
+        Stream<Supplier<Result>> removers = copy(
+                identifiers.filter(Objects::nonNull).distinct().map(this::remover));
+        return () -> copy(removers.map(Supplier::get));
     }
 
-    private static <T> Collector<T, Stream.Builder<T>, Stream<T>> copyCollector()
+    @SuppressWarnings("unchecked")
+    private static <T> Stream<T> copy(Stream<T> str)
     {
-        return Collector.of(Stream::builder, Stream.Builder::add, (b1, b2) -> {
-            b2.build().forEach(b1);
-            return b1;
-        }, Stream.Builder::build);
+        return Stream.of((T[]) str.toArray());
     }
 
     /**
@@ -676,8 +667,8 @@ public class Datastore<I, V>
     {
         static <V> ChangeProcessor<V> noOp()
         {
-            return (oldValue, newValue) -> {
-            };
+            return (oldValue, newValue) ->
+                {};
         }
 
         /**
@@ -740,8 +731,8 @@ public class Datastore<I, V>
     {
         static <I, V> AdditionValidator<I, V> noOp()
         {
-            return (identifier, oldValue, newValue) -> {
-            };
+            return (identifier, oldValue, newValue) ->
+                {};
         }
 
         /**
@@ -880,20 +871,15 @@ public class Datastore<I, V>
 
         private final Map<K, Set<I>> identifiersByKey = new HashMap<>();
 
-        private final IdentifierGetter<I, V> identifierGetter;
-
         private final KeysGetter<K, ? super V> keysGetter;
 
         private final ReadWriteLock lock;
 
         private Index(Storage<I, ? super V> storage, Function<Object, V> caster,
-                IdentifierGetter<I, ? super V> identifierGetter,
                 KeysGetter<K, ? super V> keysGetter, ReadWriteLock lock)
         {
             this.storage = storage;
             this.caster = caster;
-            this.identifierGetter = obj -> Objects
-                    .requireNonNull(identifierGetter.getIdentifier(obj));
             this.keysGetter = obj -> Objects
                     .requireNonNull(keysGetter.getKeys(obj))
                     .filter(Objects::nonNull);
@@ -907,8 +893,7 @@ public class Datastore<I, V>
          */
         public Stream<K> getKeys()
         {
-            return doWithLock(lock.readLock(),
-                    () -> identifiersByKey.keySet().stream().collect(copyCollector()));
+            return doWithLock(lock.readLock(), () -> copy(identifiersByKey.keySet().stream()));
         }
 
         /**
@@ -921,11 +906,11 @@ public class Datastore<I, V>
         public Stream<I> getIdentifiers(K key)
         {
             Objects.requireNonNull(key);
-            return doWithLock(lock.readLock(), () -> {
-                Set<I> idsForKey = identifiersByKey.get(key);
-                return idsForKey == null ? Stream.empty()
-                        : idsForKey.stream().collect(copyCollector());
-            });
+            return doWithLock(lock.readLock(),
+                    () -> copy(Stream
+                            .of(identifiersByKey.get(key))
+                            .filter(Objects::nonNull)
+                            .flatMap(Collection::stream)));
         }
 
         /**
@@ -937,16 +922,8 @@ public class Datastore<I, V>
          */
         public Stream<V> getObjects(K key)
         {
-            return doWithLock(lock.readLock(),
-                    () -> getIdentifiers(key).map(storage::get).collect(copyCollector()))
-                            .map(caster::apply);
-        }
-
-        private void add(Object object)
-        {
-            V castObject = caster.apply(object);
-            if (castObject != null)
-                addObject(identifierGetter.getIdentifier(castObject), castObject);
+            return doWithLock(lock.readLock(), () -> copy(getIdentifiers(key).map(storage::get)))
+                    .map(caster::apply);
         }
 
         private void add(I identifier, Object object)
@@ -958,14 +935,11 @@ public class Datastore<I, V>
 
         private void addObject(I identifier, V object)
         {
-            doWithLock(lock.writeLock(), () -> {
-                getKeys(object).forEach(key -> {
-                    Set<I> ids = identifiersByKey.get(key);
-                    if (ids == null)
-                        identifiersByKey.put(key, ids = new HashSet<>());
-                    ids.add(identifier);
-                });
-            });
+            doWithLock(lock.writeLock(),
+                    () -> getKeys(object)
+                            .forEach(key -> identifiersByKey
+                                    .computeIfAbsent(key, k -> new HashSet<>())
+                                    .add(identifier)));
         }
 
         private Stream<K> getKeys(V object)
@@ -973,36 +947,28 @@ public class Datastore<I, V>
             return keysGetter.getKeys(object).filter(Objects::nonNull).distinct();
         }
 
-        private void remove(Object object)
+        private void remove(I identifier, Object object)
         {
             V castObject = caster.apply(object);
             if (castObject == null)
                 return;
-            I identifier = identifierGetter.getIdentifier(castObject);
-            doWithLock(lock.writeLock(), () -> {
-                getKeys(castObject).forEach(key -> {
-                    Set<I> objects = identifiersByKey.get(key);
-                    if (objects != null && objects.remove(identifier) && objects.isEmpty())
-                        identifiersByKey.remove(key);
-                });
-            });
+            doWithLock(lock.writeLock(), () -> getKeys(castObject)
+                    .forEach(key -> identifiersByKey
+                            .computeIfPresent(key, (k,
+                                    ids) -> ids.remove(identifier) && ids.isEmpty() ? null : ids)));
         }
 
-        private void update(Object oldValue, Object newValue)
+        private void update(I identifier, Object oldValue, Object newValue)
         {
             if (oldValue != null)
-                remove(oldValue);
+                remove(identifier, oldValue);
             if (newValue != null)
-                add(newValue);
+                add(identifier, newValue);
         }
 
         private static <V> Function<Object, V> caster(Class<V> objectType)
         {
-            return obj -> {
-                if (objectType.isAssignableFrom(obj.getClass()))
-                    return objectType.cast(obj);
-                return null;
-            };
+            return obj -> objectType.isAssignableFrom(obj.getClass()) ? objectType.cast(obj) : null;
         }
     }
 
