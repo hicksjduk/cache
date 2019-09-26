@@ -409,8 +409,9 @@ public class Datastore<I, V>
 
     private Supplier<Stream<Result>> adder(Stream<V> newObjects)
     {
-        Stream<V> objs = copy(newObjects.filter(Objects::nonNull));
-        return () -> copy(objs.map(this::adder).map(Supplier::get));
+        Stream<Datastore<I, V>.Adder> adders = copy(
+                newObjects.filter(Objects::nonNull).map(this::adder));
+        return () -> copy(adders.map(Supplier::get));
     }
 
     /**
