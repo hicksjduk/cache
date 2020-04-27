@@ -402,7 +402,7 @@ public class Datastore<I, V>
         add(Objects.requireNonNull(objects).stream());
     }
 
-    private void add(Stream<V> objects)
+    public void add(Stream<V> objects)
     {
         doWithLock(lock.writeLock(), adder(objects)).forEach(Result::process);
     }
@@ -439,7 +439,7 @@ public class Datastore<I, V>
         addReplace(Objects.requireNonNull(objects).stream());
     }
 
-    private void addReplace(Stream<V> objects)
+    public void addReplace(Stream<V> objects)
     {
         doWithLock(lock.writeLock(), addReplacer(objects)).forEach(Result::process);
     }
@@ -512,7 +512,7 @@ public class Datastore<I, V>
         remove(Objects.requireNonNull(identifiers).stream());
     }
 
-    private void remove(Stream<I> identifiers)
+    public void remove(Stream<I> identifiers)
     {
         doWithLock(lock.writeLock(), () -> remover(identifiers).get().forEach(Result::process));
     }
