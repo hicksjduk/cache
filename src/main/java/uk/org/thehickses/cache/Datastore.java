@@ -370,11 +370,21 @@ public class Datastore<I, V>
         return get(Stream.concat(Stream.of(id1, id2), Stream.of(otherIds)));
     }
 
-    private Stream<V> get(Stream<I> identifiers)
+    public Stream<V> get(Stream<I> identifiers)
     {
         Stream<I> ids = copy(identifiers.filter(Objects::nonNull).distinct());
         return doWithLock(lock.readLock(),
                 () -> copy(ids.map(storage::get).filter(Objects::nonNull)));
+    }
+
+    public Stream<I> getAllIdentifiers()
+    {
+        return doWithLock(lock.readLock(), () -> copy(storage.identifiers()));
+    }
+
+    public Stream<V> getAllValues()
+    {
+        return doWithLock(lock.readLock(), () -> copy(storage.identifiers().map(storage::get)));
     }
 
     /**
