@@ -412,12 +412,12 @@ public class Datastore<I, V>
         add(Objects.requireNonNull(objects).stream());
     }
 
-    public void add(Stream<V> objects)
+    public void add(Stream<? extends V> objects)
     {
         doWithLock(lock.writeLock(), adder(objects)).forEach(Result::process);
     }
 
-    private Supplier<Stream<Result>> adder(Stream<V> newObjects)
+    private Supplier<Stream<Result>> adder(Stream<? extends V> newObjects)
     {
         Stream<Datastore<I, V>.Adder> adders = copy(
                 newObjects.filter(Objects::nonNull).map(this::adder));
@@ -969,7 +969,7 @@ public class Datastore<I, V>
                                     ids) -> ids.remove(identifier) && ids.isEmpty() ? null : ids)));
         }
 
-        private void update(I identifier, Object oldValue, Object newValue)
+        public void update(I identifier, Object oldValue, Object newValue)
         {
             if (oldValue != null)
                 remove(identifier, oldValue);
