@@ -394,8 +394,8 @@ public class Datastore<I, V>
      * @param objects
      *            the object(s). May be empty, but may not be null. If it contains any null objects, they are ignored.
      */
-    @SafeVarargs
-    public final void add(V... objects)
+    @SuppressWarnings("unchecked")
+    public void add(V... objects)
     {
         add(Stream.of(Objects.requireNonNull(objects)));
     }
@@ -504,8 +504,8 @@ public class Datastore<I, V>
      *            the identifier(s). May be empty, but may not be null. If it contains any null objects, they are
      *            ignored. If any identifier is not that of an object in the store, it has no effect.
      */
-    @SafeVarargs
-    public final void remove(I... identifiers)
+    @SuppressWarnings("unchecked")
+    public void remove(I... identifiers)
     {
         remove(Stream.of(Objects.requireNonNull(identifiers)));
     }
