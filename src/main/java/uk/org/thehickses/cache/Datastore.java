@@ -227,7 +227,8 @@ public class Datastore<I, V>
         this.changeProcessor = (oldValue, newValue) -> changeProc
                 .ifPresent(cp -> cp.processChange(oldValue, newValue));
         var valNorm = Optional.ofNullable(valueNormaliser);
-        this.valueNormaliser = obj -> valNorm.map(vn -> Objects.requireNonNull(vn.normalise(obj)))
+        this.valueNormaliser = obj -> valNorm.map(vn -> vn.normalise(obj))
+                .map(Objects::requireNonNull)
                 .orElse(obj);
         var addVal = Optional.ofNullable(additionValidator);
         this.additionValidator = (identifier, oldValue, newValue) -> addVal
