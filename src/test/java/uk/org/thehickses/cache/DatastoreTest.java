@@ -9,9 +9,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.assertj.core.api.Condition;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import uk.org.thehickses.cache.Datastore.ChangeProcessor;
 import uk.org.thehickses.cache.Datastore.IdentifierGetter;
@@ -25,7 +25,7 @@ public class DatastoreTest
     private ChangeProcessor<StoredObject> changeProcessor;
 
     @SuppressWarnings("unchecked")
-    @Before
+    @BeforeEach
     public void setup()
     {
         IdentifierGetter<String, StoredObject> identifierGetter = StoredObject::getKey;
@@ -34,7 +34,7 @@ public class DatastoreTest
         datastore = new TestDatastore(storage, identifierGetter, changeProcessor);
     }
 
-    @After
+    @AfterEach
     public void tearDown()
     {
         verifyNoMoreInteractions(changeProcessor);
@@ -167,39 +167,55 @@ public class DatastoreTest
     @Test
     public void testAddWithReplace()
     {
-        Set<StoredObject> firstLot = Stream
-                .of("1", "2", "3")
+        Set<StoredObject> firstLot = Stream.of("1", "2", "3")
                 .map(key -> new StoredObject(key, 1, "xxx"))
                 .collect(Collectors.toSet());
-        Set<StoredObject> secondLot = Stream
-                .of("4", "2", "5")
+        Set<StoredObject> secondLot = Stream.of("4", "2", "5")
                 .map(key -> new StoredObject(key, 1, "xxx"))
                 .collect(Collectors.toSet());
         datastore.add(firstLot);
         datastore.addReplace(secondLot);
-        Stream.concat(firstLot.stream(), secondLot.stream()).distinct().forEach(
-                obj -> verify(changeProcessor).processChange(same(null), same(obj)));
-        firstLot.stream().filter(obj -> !secondLot.contains(obj)).forEach(obj -> {
-            verify(changeProcessor).processChange(same(obj), same(null));
-            verifyAbsent(obj);
-        });
-        secondLot.stream().forEach(obj -> verifyPresent(obj));
+        Stream.concat(firstLot.stream(), secondLot.stream())
+                .distinct()
+                .forEach(obj -> verify(changeProcessor).processChange(same(null), same(obj)));
+        firstLot.stream()
+                .filter(obj -> !secondLot.contains(obj))
+                .forEach(obj ->
+                    {
+                        verify(changeProcessor).processChange(same(obj), same(null));
+                        verifyAbsent(obj);
+                    });
+        secondLot.stream()
+                .forEach(obj -> verifyPresent(obj));
     }
 
     @Test
     public void testEmptyAddWithReplace()
     {
-        Set<StoredObject> objects = Stream
-                .of("1", "2", "3")
+        Set<StoredObject> objects = Stream.of("1", "2", "3")
                 .map(key -> new StoredObject(key, 1, "xxx"))
                 .collect(Collectors.toSet());
         datastore.add(objects);
         datastore.addReplace();
-        objects.stream().forEach(obj -> {
-            verifyAbsent(obj);
-            verify(changeProcessor).processChange(same(null), same(obj));
-            verify(changeProcessor).processChange(same(obj), same(null));
-        });
+        objects.stream()
+                .forEach(obj ->
+                    {
+                        verifyAbsent(obj);
+                        verify(changeProcessor).processChange(same(null), same(obj));
+                        verify(changeProcessor).processChange(same(obj), same(null));
+                    });
+    }
+
+    @Test
+    public void testAddMultipleObjectsWithSameKeyInSameCall()
+    {
+        datastore.add(new StoredObject("a", 1, "Hello"), new StoredObject("b", 2, "Bonjour"),
+                new StoredObject("b", 3, "Guten Tag"), new StoredObject("b", 4, "Hej"),
+                new StoredObject("c", 5, "Zdravstvuitye"));
+        assertThat(datastore.getAllValues()
+                .map(StoredObject::getValue2)).containsExactlyInAnyOrder("Hello", "Hej",
+                        "Zdravstvuitye");
+        verify(changeProcessor, times(5)).processChange(any(), any());
     }
 
     @Test
@@ -245,7 +261,8 @@ public class DatastoreTest
         Sub1 o2 = new Sub1("b", "bb");
         Sub2 o3 = new Sub2("c", "cc");
         store.add(o1, o2, o3);
-        Stream.of(o1, o2, o3).forEach(o -> assertThat(store.get(o.id)).isSameAs(o));
+        Stream.of(o1, o2, o3)
+                .forEach(o -> assertThat(store.get(o.id)).isSameAs(o));
         assertThat(index1.getKeys()).containsOnly(o2.key);
         assertThat(index1.getIdentifiers(o2.key)).containsOnly(o2.id);
         assertThat(index1.getObjects(o2.key)).containsOnly(o2);
@@ -258,25 +275,26 @@ public class DatastoreTest
     public void testKeyGetterReturningNull()
     {
         KeyGetter<String, String> keyGetter = obj -> null;
-        assertThat(keyGetter.toKeysGetter().getKeys("hello")).containsExactly((String) null);
+        assertThat(keyGetter.toKeysGetter()
+                .getKeys("hello")).containsExactly((String) null);
     }
 
     private void verifyPresent(StoredObject o)
     {
         assertThat(storage.get(o.getKey())).isSameAs(o);
-        Stream
-                .of(indexValidator(datastore.index1, o.getValue1(), o),
-                        indexValidator(datastore.index2, o.getValue2(), o))
+        Stream.of(indexValidator(datastore.index1, o.getValue1(), o),
+                indexValidator(datastore.index2, o.getValue2(), o))
                 .forEach(Runnable::run);
     }
 
     private static <K> Runnable indexValidator(Index<K, String, StoredObject> index, K indexKey,
             StoredObject expectedObject)
     {
-        return () -> {
-            assertThat(index.getObjects(indexKey)).areExactly(1, exactMatch(expectedObject));
-            assertThat(index.getIdentifiers(indexKey)).contains(expectedObject.getKey());
-        };
+        return () ->
+            {
+                assertThat(index.getObjects(indexKey)).areExactly(1, exactMatch(expectedObject));
+                assertThat(index.getIdentifiers(indexKey)).contains(expectedObject.getKey());
+            };
     }
 
     private void verifyAbsent(StoredObject o)
@@ -373,10 +391,11 @@ public class DatastoreTest
 
         private static <I, V> AdditionValidator<I, V> validator()
         {
-            return (identifier, newValue, oldValue) -> {
-                if ("rejectThis".equals(identifier))
-                    throw new InvalidAdditionException("Don't like this one");
-            };
+            return (identifier, newValue, oldValue) ->
+                {
+                    if ("rejectThis".equals(identifier))
+                        throw new InvalidAdditionException("Don't like this one");
+                };
         }
 
         public TestDatastore(Storage<String, StoredObject> storage,

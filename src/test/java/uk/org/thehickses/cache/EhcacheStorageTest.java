@@ -9,7 +9,7 @@ import java.util.stream.IntStream;
 import org.ehcache.config.builders.CacheConfigurationBuilder;
 import org.ehcache.config.builders.ResourcePoolsBuilder;
 import org.ehcache.config.units.MemoryUnit;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.org.thehickses.cache.Datastore.Storage;
 
