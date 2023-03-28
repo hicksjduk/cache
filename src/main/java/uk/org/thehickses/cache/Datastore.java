@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -70,8 +71,7 @@ public class Datastore<I, V>
      */
     public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter)
     {
-        this(storage, identifierGetter, ChangeProcessor.noOp(), ValueNormaliser.noOp(),
-                AdditionValidator.noOp());
+        this(storage, identifierGetter, null, null, null);
     }
 
     /**
@@ -90,8 +90,7 @@ public class Datastore<I, V>
     public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             ChangeProcessor<V> changeProcessor)
     {
-        this(storage, identifierGetter, changeProcessor, ValueNormaliser.noOp(),
-                AdditionValidator.noOp());
+        this(storage, identifierGetter, changeProcessor, null, null);
     }
 
     /**
@@ -110,8 +109,7 @@ public class Datastore<I, V>
     public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             ValueNormaliser<V> valueNormaliser)
     {
-        this(storage, identifierGetter, ChangeProcessor.noOp(), valueNormaliser,
-                AdditionValidator.noOp());
+        this(storage, identifierGetter, null, valueNormaliser, null);
     }
 
     /**
@@ -130,8 +128,7 @@ public class Datastore<I, V>
     public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             AdditionValidator<I, V> additionValidator)
     {
-        this(storage, identifierGetter, ChangeProcessor.noOp(), ValueNormaliser.noOp(),
-                additionValidator);
+        this(storage, identifierGetter, null, null, additionValidator);
     }
 
     /**
@@ -153,7 +150,7 @@ public class Datastore<I, V>
     public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             ChangeProcessor<V> changeProcessor, AdditionValidator<I, V> additionValidator)
     {
-        this(storage, identifierGetter, changeProcessor, ValueNormaliser.noOp(), additionValidator);
+        this(storage, identifierGetter, changeProcessor, null, additionValidator);
     }
 
     /**
@@ -175,7 +172,7 @@ public class Datastore<I, V>
     public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             ValueNormaliser<V> valueNormaliser, AdditionValidator<I, V> additionValidator)
     {
-        this(storage, identifierGetter, ChangeProcessor.noOp(), valueNormaliser, additionValidator);
+        this(storage, identifierGetter, null, valueNormaliser, additionValidator);
     }
 
     /**
@@ -196,7 +193,7 @@ public class Datastore<I, V>
     public Datastore(Storage<I, V> storage, IdentifierGetter<I, V> identifierGetter,
             ChangeProcessor<V> changeProcessor, ValueNormaliser<V> valueNormaliser)
     {
-        this(storage, identifierGetter, changeProcessor, valueNormaliser, AdditionValidator.noOp());
+        this(storage, identifierGetter, changeProcessor, valueNormaliser, null);
     }
 
     /**
@@ -222,14 +219,19 @@ public class Datastore<I, V>
             ChangeProcessor<V> changeProcessor, ValueNormaliser<V> valueNormaliser,
             AdditionValidator<I, V> additionValidator)
     {
-        Stream
-                .of(storage, identifierGetter, changeProcessor, valueNormaliser, additionValidator)
+        Stream.of(storage, identifierGetter)
                 .forEach(Objects::requireNonNull);
         this.storage = storage;
         this.identifierGetter = obj -> Objects.requireNonNull(identifierGetter.getIdentifier(obj));
-        this.changeProcessor = changeProcessor;
-        this.valueNormaliser = obj -> Objects.requireNonNull(valueNormaliser.normalise(obj));
-        this.additionValidator = additionValidator;
+        var changeProc = Optional.ofNullable(changeProcessor);
+        this.changeProcessor = (oldValue, newValue) -> changeProc
+                .ifPresent(cp -> cp.processChange(oldValue, newValue));
+        var valNorm = Optional.ofNullable(valueNormaliser);
+        this.valueNormaliser = obj -> valNorm.map(vn -> Objects.requireNonNull(vn.normalise(obj)))
+                .orElse(obj);
+        var addVal = Optional.ofNullable(additionValidator);
+        this.additionValidator = (identifier, oldValue, newValue) -> addVal
+                .ifPresent(av -> av.validate(identifier, oldValue, newValue));
     }
 
     /**
@@ -276,7 +278,8 @@ public class Datastore<I, V>
     public <K, U extends V> Index<K, I, U> index(Class<U> objectType,
             KeyGetter<K, ? super U> keyGetter)
     {
-        Stream.of(objectType, keyGetter).forEach(Objects::requireNonNull);
+        Stream.of(objectType, keyGetter)
+                .forEach(Objects::requireNonNull);
         return index(Index.caster(objectType), keyGetter.toKeysGetter());
     }
 
@@ -294,7 +297,8 @@ public class Datastore<I, V>
     public <K, U extends V> Index<K, I, U> index(Class<U> objectType,
             KeysGetter<K, ? super U> keysGetter)
     {
-        Stream.of(objectType, keysGetter).forEach(Objects::requireNonNull);
+        Stream.of(objectType, keysGetter)
+                .forEach(Objects::requireNonNull);
         return index(Index.caster(objectType), keysGetter);
     }
 
@@ -310,7 +314,8 @@ public class Datastore<I, V>
     private <K, U extends V> void addIndex(Index<K, I, U> index)
     {
         indices.add(index);
-        storage.identifiers().forEach(i -> index.add(i, storage.get(i)));
+        storage.identifiers()
+                .forEach(i -> index.add(i, storage.get(i)));
     }
 
     /**
@@ -323,7 +328,8 @@ public class Datastore<I, V>
     public V get(I identifier)
     {
         Objects.requireNonNull(identifier);
-        return get(Stream.of(identifier)).findFirst().orElse(null);
+        return get(Stream.of(identifier)).findFirst()
+                .orElse(null);
     }
 
     /**
@@ -372,9 +378,10 @@ public class Datastore<I, V>
 
     public Stream<V> get(Stream<I> identifiers)
     {
-        Stream<I> ids = copy(identifiers.filter(Objects::nonNull).distinct());
-        return doWithLock(lock.readLock(),
-                () -> copy(ids.map(storage::get).filter(Objects::nonNull)));
+        Stream<I> ids = copy(identifiers.filter(Objects::nonNull)
+                .distinct());
+        return doWithLock(lock.readLock(), () -> copy(ids.map(storage::get)
+                .filter(Objects::nonNull)));
     }
 
     public Stream<I> getAllIdentifiers()
@@ -384,7 +391,8 @@ public class Datastore<I, V>
 
     public Stream<V> getAllValues()
     {
-        return doWithLock(lock.readLock(), () -> copy(storage.identifiers().map(storage::get)));
+        return doWithLock(lock.readLock(), () -> copy(storage.identifiers()
+                .map(storage::get)));
     }
 
     /**
@@ -409,7 +417,8 @@ public class Datastore<I, V>
      */
     public void add(Collection<V> objects)
     {
-        add(Objects.requireNonNull(objects).stream());
+        add(Objects.requireNonNull(objects)
+                .stream());
     }
 
     public void add(Stream<? extends V> objects)
@@ -419,8 +428,8 @@ public class Datastore<I, V>
 
     private Supplier<Stream<Result>> adder(Stream<? extends V> newObjects)
     {
-        Stream<Datastore<I, V>.Adder> adders = copy(
-                newObjects.filter(Objects::nonNull).map(this::adder));
+        Stream<Datastore<I, V>.Adder> adders = copy(newObjects.filter(Objects::nonNull)
+                .map(this::adder));
         return () -> copy(adders.map(Supplier::get));
     }
 
@@ -446,7 +455,8 @@ public class Datastore<I, V>
      */
     public void addReplace(Collection<V> objects)
     {
-        addReplace(Objects.requireNonNull(objects).stream());
+        addReplace(Objects.requireNonNull(objects)
+                .stream());
     }
 
     public void addReplace(Stream<V> objects)
@@ -456,14 +466,11 @@ public class Datastore<I, V>
 
     private Supplier<Stream<Result>> addReplacer(Stream<V> newObjects)
     {
-        Map<I, Supplier<Result>> transactionsByIdentifier = newObjects
-                .filter(Objects::nonNull)
+        Map<I, Supplier<Result>> transactionsByIdentifier = newObjects.filter(Objects::nonNull)
                 .map(this::adder)
                 .collect(Collectors.toMap(a -> a.identifier, Function.identity()));
-        return () -> copy(Stream
-                .of(transactionsByIdentifier)
-                .peek(txns -> storage
-                        .identifiers()
+        return () -> copy(Stream.of(transactionsByIdentifier)
+                .peek(txns -> storage.identifiers()
                         .forEach(id -> txns.putIfAbsent(id, remover(id))))
                 .map(Map::values)
                 .flatMap(Collection::stream)
@@ -474,17 +481,15 @@ public class Datastore<I, V>
     {
         if (result.exception != null)
         {
-            LOG
-                    .error("Invalid attempt to add object {} (with identifier {})", result.newValue,
-                            result.identifier, result.exception);
+            LOG.error("Invalid attempt to add object {} (with identifier {})", result.newValue,
+                    result.identifier, result.exception);
             return;
         }
         if (result.oldValue == null)
             LOG.debug("New object {} added with identifier {}", result.newValue, result.identifier);
         else
-            LOG
-                    .debug("Existing object {} replaced by new object {} with identifier {}",
-                            result.oldValue, result.newValue, result.identifier);
+            LOG.debug("Existing object {} replaced by new object {} with identifier {}",
+                    result.oldValue, result.newValue, result.identifier);
         if (!Objects.equals(result.oldValue, result.newValue))
             changeProcessor.processChange(result.oldValue, result.newValue);
     }
@@ -519,12 +524,14 @@ public class Datastore<I, V>
      */
     public void remove(Collection<I> identifiers)
     {
-        remove(Objects.requireNonNull(identifiers).stream());
+        remove(Objects.requireNonNull(identifiers)
+                .stream());
     }
 
     public void remove(Stream<I> identifiers)
     {
-        doWithLock(lock.writeLock(), () -> remover(identifiers).get().forEach(Result::process));
+        doWithLock(lock.writeLock(), () -> remover(identifiers).get()
+                .forEach(Result::process));
     }
 
     private void processResult(RemoveResult result)
@@ -540,7 +547,8 @@ public class Datastore<I, V>
 
     private void updateIndices(I identifier, V oldValue, V newValue)
     {
-        indices.stream().forEach(i -> i.update(identifier, oldValue, newValue));
+        indices.stream()
+                .forEach(i -> i.update(identifier, oldValue, newValue));
     }
 
     private Adder adder(V value)
@@ -581,8 +589,9 @@ public class Datastore<I, V>
 
     private Supplier<Stream<Result>> remover(Stream<I> identifiers)
     {
-        Stream<Supplier<Result>> removers = copy(
-                identifiers.filter(Objects::nonNull).distinct().map(this::remover));
+        Stream<Supplier<Result>> removers = copy(identifiers.filter(Objects::nonNull)
+                .distinct()
+                .map(this::remover));
         return () -> copy(removers.map(Supplier::get));
     }
 
@@ -676,12 +685,6 @@ public class Datastore<I, V>
     @FunctionalInterface
     public static interface ChangeProcessor<V>
     {
-        static <V> ChangeProcessor<V> noOp()
-        {
-            return (oldValue, newValue) ->
-                {};
-        }
-
         /**
          * Processes a notification that the store has changed. The change may be:
          * <ul>
@@ -710,11 +713,6 @@ public class Datastore<I, V>
     @FunctionalInterface
     public static interface ValueNormaliser<V>
     {
-        static <V> ValueNormaliser<V> noOp()
-        {
-            return value -> value;
-        }
-
         /**
          * Normalises, if necessary, the specified value.
          * 
@@ -740,12 +738,6 @@ public class Datastore<I, V>
     @FunctionalInterface
     public static interface AdditionValidator<I, V>
     {
-        static <I, V> AdditionValidator<I, V> noOp()
-        {
-            return (identifier, oldValue, newValue) ->
-                {};
-        }
-
         /**
          * Validates the addition of the specified new value, which has the specified identifier and replaces the
          * specified old value if that is not null.
@@ -765,7 +757,7 @@ public class Datastore<I, V>
     }
 
     @SuppressWarnings("serial")
-    public static class InvalidAdditionException extends Exception
+    public static class InvalidAdditionException extends RuntimeException
     {
         public InvalidAdditionException()
         {
@@ -891,8 +883,7 @@ public class Datastore<I, V>
         {
             this.storage = storage;
             this.caster = caster;
-            this.keysGetter = obj -> Objects
-                    .requireNonNull(keysGetter.getKeys(obj))
+            this.keysGetter = obj -> Objects.requireNonNull(keysGetter.getKeys(obj))
                     .filter(Objects::nonNull);
             this.lock = lock;
         }
@@ -904,7 +895,8 @@ public class Datastore<I, V>
          */
         public Stream<K> getKeys()
         {
-            return doWithLock(lock.readLock(), () -> copy(identifiersByKey.keySet().stream()));
+            return doWithLock(lock.readLock(), () -> copy(identifiersByKey.keySet()
+                    .stream()));
         }
 
         /**
@@ -917,11 +909,9 @@ public class Datastore<I, V>
         public Stream<I> getIdentifiers(K key)
         {
             Objects.requireNonNull(key);
-            return doWithLock(lock.readLock(),
-                    () -> copy(Stream
-                            .of(identifiersByKey.get(key))
-                            .filter(Objects::nonNull)
-                            .flatMap(Collection::stream)));
+            return doWithLock(lock.readLock(), () -> copy(Stream.of(identifiersByKey.get(key))
+                    .filter(Objects::nonNull)
+                    .flatMap(Collection::stream)));
         }
 
         /**
@@ -947,15 +937,16 @@ public class Datastore<I, V>
         private void addObject(I identifier, V object)
         {
             doWithLock(lock.writeLock(),
-                    () -> getKeys(object)
-                            .forEach(key -> identifiersByKey
-                                    .computeIfAbsent(key, k -> new HashSet<>())
+                    () -> getKeys(object).forEach(
+                            key -> identifiersByKey.computeIfAbsent(key, k -> new HashSet<>())
                                     .add(identifier)));
         }
 
         private Stream<K> getKeys(V object)
         {
-            return keysGetter.getKeys(object).filter(Objects::nonNull).distinct();
+            return keysGetter.getKeys(object)
+                    .filter(Objects::nonNull)
+                    .distinct();
         }
 
         private void remove(I identifier, Object object)
@@ -963,10 +954,9 @@ public class Datastore<I, V>
             V castObject = caster.apply(object);
             if (castObject == null)
                 return;
-            doWithLock(lock.writeLock(), () -> getKeys(castObject)
-                    .forEach(key -> identifiersByKey
-                            .computeIfPresent(key, (k,
-                                    ids) -> ids.remove(identifier) && ids.isEmpty() ? null : ids)));
+            doWithLock(lock.writeLock(),
+                    () -> getKeys(castObject).forEach(key -> identifiersByKey.computeIfPresent(key,
+                            (k, ids) -> ids.remove(identifier) && ids.isEmpty() ? null : ids)));
         }
 
         public void update(I identifier, Object oldValue, Object newValue)
